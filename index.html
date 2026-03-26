@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>daily-check</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --border: #e2e0d8;
+    --text-primary: #1a1917;
+    --text-secondary: #6b6960;
+    --text-muted: #a09e96;
+    --accent: #2563eb;
+    --accent-light: #eff6ff;
+    --accent-border: #bfdbfe;
+    --danger: #dc2626;
+    --danger-light: #fef2f2;
+    --success: #16a34a;
+    --success-light: #f0fdf4;
+    --warn: #d97706;
+    --warn-light: #fffbeb;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+    background: var(--bg); color: var(--text-primary);
+    min-height: 100vh; font-size: 15px; line-height: 1.5;
+  }
+
+  /* ── 로그인 ── */
+  #auth-screen {
+    min-height: 100vh; display: flex;
+    flex-direction: column; align-items: center;
+    justify-content: center; padding: 24px;
+  }
+  .auth-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px; padding: 36px 28px;
+    width: 100%; max-width: 360px; box-shadow: var(--shadow-md);
+  }
+  .app-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
+  .logo-icon {
+    width: 40px; height: 40px; background: var(--accent);
+    border-radius: 10px; display: flex; align-items: center;
+    justify-content: center; color: white; font-size: 18px;
+    font-weight: 700; flex-shrink: 0;
+  }
+  .app-name { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+  .app-desc { font-size: 13px; color: var(--text-muted); margin-top: 1px; }
+
+  .form-group { margin-bottom: 14px; }
+  .form-label { display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+  .form-input, .form-select {
+    width: 100%; padding: 12px 14px;
+    border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+    font-size: 15px; color: var(--text-primary); background: var(--surface);
+    outline: none; transition: border-color 0.15s; font-family: inherit;
+    appearance: none;
+  }
+  .form-input:focus, .form-select:focus {
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+  }
+  .select-wrap { position: relative; }
+  .select-wrap::after {
+    content: '▾'; position: absolute; right: 14px; top: 50%;
+    transform: translateY(-50%); color: var(--text-muted);
+    pointer-events: none; font-size: 13px;
+  }
+
+  .btn-primary {
+    width: 100%; padding: 13px; background: var(--accent); color: white;
+    border: none; border-radius: var(--radius-sm); font-size: 15px;
+    font-weight: 600; cursor: pointer; transition: background 0.15s, transform 0.1s;
+    font-family: inherit; margin-top: 6px;
+  }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-primary:hover { background: #1d4ed8; }
+  .btn-primary:disabled { background: var(--text-muted); cursor: not-allowed; }
+
+  .auth-msg {
+    display: none; border-radius: var(--radius-sm);
+    padding: 10px 12px; font-size: 13px; margin-top: 12px;
+  }
+  .auth-msg.error { background: var(--danger-light); border: 1px solid #fca5a5; color: var(--danger); }
+  .auth-msg.success { background: var(--success-light); border: 1px solid #86efac; color: var(--success); }
+
+  .link-btn {
+    background: none; border: none; font-size: 13px; color: var(--text-muted);
+    cursor: pointer; font-family: inherit; text-decoration: underline;
+    padding: 0; display: block; margin: 14px auto 0;
+  }
+
+  /* ── 메인 ── */
+  #main-screen { display: none; min-height: 100vh; }
+  .top-bar {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 12px 16px; display: flex; align-items: center;
+    justify-content: space-between; position: sticky; top: 0; z-index: 100;
+  }
+  .top-left { display: flex; align-items: center; gap: 8px; }
+  .top-logo {
+    width: 30px; height: 30px; background: var(--accent); border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 13px; font-weight: 700;
+  }
+  .top-title { font-size: 15px; font-weight: 700; }
+  .work-date-badge {
+    background: var(--accent-light); border: 1px solid var(--accent-border);
+    color: var(--accent); font-size: 12px; font-weight: 600;
+    padding: 3px 9px; border-radius: 20px;
+  }
+  .top-right { display: flex; align-items: center; gap: 8px; }
+  .user-name-top { font-size: 13px; font-weight: 600; }
+  .user-role-top { font-size: 11px; color: var(--text-muted); }
+  .btn-sm {
+    padding: 6px 11px; border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); background: transparent;
+    font-size: 13px; color: var(--text-secondary); cursor: pointer;
+    font-family: inherit; font-weight: 500; transition: all 0.15s;
+  }
+  .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+
+  .main-content { padding: 18px 16px; max-width: 680px; margin: 0 auto; }
+  .section-header { margin-bottom: 12px; }
+  .section-title { font-size: 17px; font-weight: 700; letter-spacing: -0.4px; }
+  .section-sub { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+  .team-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; margin-bottom: 24px;
+  }
+  @media (min-width: 480px) { .team-grid { grid-template-columns: repeat(3,1fr); } }
+  @media (min-width: 640px) { .team-grid { grid-template-columns: repeat(4,1fr); } }
+
+  .team-card {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: var(--radius); padding: 16px 12px;
+    cursor: pointer; transition: all 0.15s; text-decoration: none;
+    display: block; position: relative; overflow: hidden;
+  }
+  .team-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0;
+    height: 3px; background: var(--accent); opacity: 0; transition: opacity 0.15s;
+  }
+  .team-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+  .team-card:hover::before { opacity: 1; }
+  .team-card:active { transform: scale(0.97); }
+  .team-emoji { font-size: 26px; margin-bottom: 8px; display: block; line-height: 1; }
+  .team-name { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+  .team-progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-bottom: 4px; }
+  .team-progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s; }
+  .team-progress-fill.complete { background: var(--success); }
+  .team-progress-fill.has-issue { background: var(--danger); }
+  .team-progress-text { font-size: 11px; color: var(--text-muted); font-weight: 500; }
+  .team-badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; margin-top: 4px; }
+  .badge-issue { background: var(--danger-light); color: var(--danger); }
+  .badge-complete { background: var(--success-light); color: var(--success); }
+  .badge-pending { background: var(--warn-light); color: var(--warn); }
+
+  .issue-list { display: flex; flex-direction: column; gap: 8px; }
+  .issue-item {
+    background: var(--surface); border: 1.5px solid #fca5a5;
+    border-radius: var(--radius-sm); padding: 12px 14px;
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+  .issue-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); flex-shrink: 0; margin-top: 5px; }
+  .issue-content { flex: 1; }
+  .issue-item-name { font-size: 13px; font-weight: 600; }
+  .issue-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .issue-memo { font-size: 12px; color: var(--danger); margin-top: 3px; font-style: italic; }
+
+  .btn-menu {
+    display: flex; align-items: center; gap: 8px; padding: 12px 16px;
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); font-size: 14px; font-weight: 600;
+    color: var(--text-secondary); cursor: pointer; text-decoration: none;
+    transition: all 0.15s; font-family: inherit; width: 100%; margin-bottom: 10px;
+  }
+  .btn-menu:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+
+  .skeleton {
+    background: linear-gradient(90deg, var(--border) 25%, #f0efea 50%, var(--border) 75%);
+    background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px;
+  }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  .empty-state { text-align: center; padding: 36px 20px; color: var(--text-muted); grid-column: 1/-1; }
+  .empty-icon { font-size: 36px; margin-bottom: 10px; }
+  .empty-text { font-size: 14px; line-height: 1.6; }
+
+  /* ── 설정 모달 ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.4); z-index: 200;
+    align-items: center; justify-content: center; padding: 24px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: var(--surface); border-radius: 20px; padding: 28px;
+    width: 100%; max-width: 360px; box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;
+  }
+  .modal-title { font-size: 17px; font-weight: 700; }
+  .modal-close {
+    background: none; border: none; font-size: 20px; cursor: pointer;
+    color: var(--text-muted); padding: 0; line-height: 1;
+  }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--text-primary); color: white;
+    padding: 12px 20px; border-radius: 30px; font-size: 14px;
+    font-weight: 500; z-index: 999;
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    white-space: nowrap; pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════
+     로그인 화면
+═══════════════════════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="app-logo">
+      <div class="logo-icon">dc</div>
+      <div>
+        <div class="app-name">daily-check</div>
+        <div class="app-desc">일일 체크리스트</div>
+      </div>
+    </div>
+
+    <!-- 로그인 -->
+    <div id="panel-login">
+      <div class="form-group">
+        <label class="form-label">이름 선택</label>
+        <div class="select-wrap">
+          <select class="form-select" id="login-name">
+            <option value="">-- 이름을 선택하세요 --</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">비밀번호</label>
+        <input class="form-input" type="password" id="login-pw" placeholder="비밀번호 입력" autocomplete="current-password">
+      </div>
+      <button class="btn-primary" id="login-btn" onclick="handleLogin()">로그인</button>
+      <div class="auth-msg error" id="login-error"></div>
+      <button class="link-btn" onclick="showPanel('resetpw')">비밀번호를 잊으셨나요?</button>
+      <button class="link-btn" onclick="showPanel('adduser')" style="margin-top:6px;">+ 사용자 추가 (최초 설정)</button>
+    </div>
+
+    <!-- 비밀번호 재설정 -->
+    <div id="panel-resetpw" style="display:none;">
+      <div style="background:var(--warn-light);border:1px solid #fcd34d;border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;color:var(--warn);margin-bottom:16px;">
+        마스터 코드로 비밀번호를 재설정합니다
+      </div>
+      <div class="form-group">
+        <label class="form-label">이름 선택</label>
+        <div class="select-wrap">
+          <select class="form-select" id="reset-name">
+            <option value="">-- 이름을 선택하세요 --</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">마스터 코드</label>
+        <input class="form-input" type="password" id="reset-master" placeholder="관리자에게 문의하세요">
+      </div>
+      <div class="form-group">
+        <label class="form-label">새 비밀번호</label>
+        <input class="form-input" type="password" id="reset-new" placeholder="새 비밀번호 (4자 이상)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">새 비밀번호 확인</label>
+        <input class="form-input" type="password" id="reset-new2" placeholder="새 비밀번호 재입력">
+      </div>
+      <button class="btn-primary" id="reset-btn" onclick="handleResetPw()">비밀번호 재설정</button>
+      <div class="auth-msg error" id="reset-error"></div>
+      <div class="auth-msg success" id="reset-success"></div>
+      <button class="link-btn" onclick="showPanel('login')">← 로그인으로 돌아가기</button>
+    </div>
+
+    <!-- 사용자 추가 패널 -->
+    <div id="panel-adduser" style="display:none;">
+      <div style="background:var(--accent-light);border:1px solid var(--accent-border);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;color:var(--accent);margin-bottom:16px;">
+        마스터 코드 확인 후 사용자를 추가할 수 있습니다
+      </div>
+      <div class="form-group">
+        <label class="form-label">마스터 코드</label>
+        <input class="form-input" type="password" id="add-master" placeholder="마스터 코드 입력">
+      </div>
+      <div id="add-user-form" style="display:none;">
+        <div class="form-group">
+          <label class="form-label">이름</label>
+          <input class="form-input" type="text" id="add-name" placeholder="추가할 사용자 이름">
+        </div>
+        <div class="form-group">
+          <label class="form-label">비밀번호</label>
+          <input class="form-input" type="password" id="add-pw" placeholder="초기 비밀번호">
+        </div>
+        <div class="form-group">
+          <label class="form-label">권한</label>
+          <div class="select-wrap">
+            <select class="form-select" id="add-role">
+              <option value="member">팀원</option>
+              <option value="admin">관리자</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn-primary" id="add-btn" onclick="handleAddUser()" style="margin-top:4px;">사용자 추가</button>
+        <div class="auth-msg error" id="add-error"></div>
+        <div class="auth-msg success" id="add-success"></div>
+
+        <!-- 등록된 사용자 목록 -->
+        <div id="add-user-list" style="margin-top:20px;"></div>
+      </div>
+      <div id="add-master-section">
+        <button class="btn-primary" onclick="verifyMaster()" style="margin-top:4px;">확인</button>
+        <div class="auth-msg error" id="add-master-error"></div>
+      </div>
+      <button class="link-btn" onclick="showPanel('login')">← 로그인으로 돌아가기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+     메인 화면
+═══════════════════════════════ -->
+<div id="main-screen">
+  <div class="top-bar">
+    <div class="top-left">
+      <div class="top-logo">dc</div>
+      <div class="top-title">daily-check</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+      <span class="work-date-badge" id="work-date-badge">-</span>
+      <div class="top-right">
+        <div style="text-align:right;">
+          <div class="user-name-top" id="user-name-display">-</div>
+          <div class="user-role-top" id="user-role-display">-</div>
+        </div>
+        <button class="btn-sm" onclick="document.getElementById('settings-modal').classList.add('open')">설정</button>
+        <button class="btn-sm" onclick="handleLogout()" style="border-color:#fca5a5;color:var(--danger);" onmouseover="this.style.borderColor='var(--danger)'" onmouseout="this.style.borderColor='#fca5a5'">로그아웃</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="section-header" style="margin-top:4px;">
+      <div class="section-title">팀 선택</div>
+      <div class="section-sub">팀을 선택해 오늘의 체크리스트를 작성하세요</div>
+    </div>
+    <div class="team-grid" id="team-grid">
+      <div class="team-card skeleton" style="height:108px;"></div>
+      <div class="team-card skeleton" style="height:108px;"></div>
+      <div class="team-card skeleton" style="height:108px;"></div>
+      <div class="team-card skeleton" style="height:108px;"></div>
+    </div>
+
+    <div id="issue-section" style="display:none;margin-bottom:24px;">
+      <div class="section-header">
+        <div class="section-title" style="color:var(--danger);">⚠ 오늘 이상사항</div>
+        <div class="section-sub">N 체크된 항목만 표시됩니다</div>
+      </div>
+      <div class="issue-list" id="issue-list"></div>
+    </div>
+
+    <div id="admin-section" style="display:none;margin-bottom:8px;">
+      <div class="section-header"><div class="section-title">관리자</div></div>
+      <a href="admin.html" class="btn-menu">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+        </svg>
+        팀 · 템플릿 · 사용자 관리
+      </a>
+    </div>
+
+    <div style="margin-bottom:40px;">
+      <a href="history.html" class="btn-menu">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        최근 기록 조회 (30일)
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+     설정 모달 (비밀번호 변경)
+═══════════════════════════════ -->
+<div class="modal-overlay" id="settings-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">설정</div>
+      <button class="modal-close" onclick="document.getElementById('settings-modal').classList.remove('open')">✕</button>
+    </div>
+    <div style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:12px;">비밀번호 변경</div>
+    <div class="form-group">
+      <label class="form-label">현재 비밀번호</label>
+      <input class="form-input" type="password" id="s-old" placeholder="현재 비밀번호">
+    </div>
+    <div class="form-group">
+      <label class="form-label">새 비밀번호</label>
+      <input class="form-input" type="password" id="s-new" placeholder="새 비밀번호 (4자 이상)">
+    </div>
+    <div class="form-group" style="margin-bottom:20px;">
+      <label class="form-label">새 비밀번호 확인</label>
+      <input class="form-input" type="password" id="s-new2" placeholder="새 비밀번호 재입력">
+    </div>
+    <div class="auth-msg error" id="s-error" style="margin-bottom:12px;"></div>
+    <div class="auth-msg success" id="s-success" style="margin-bottom:12px;"></div>
+    <button class="btn-primary" id="s-btn" onclick="handleChangePw()" style="margin-top:0;">비밀번호 변경</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Supabase ──────────────────────────────
+const SUPABASE_URL = 'https://flevmhcogrwagyoxcacs.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZsZXZtaGNvZ3J3YWd5b3hjYWNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNDk5ODAsImV4cCI6MjA4NzkyNTk4MH0.eWvh1kjdnG-juv77MMbnmnRSWa22eFP0sZn9r4wHsYg';
+const MASTER_CODE = 'momos1!';
+
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ── 현재 로그인 유저 (localStorage) ───────
+let currentUser = null;
+
+function saveSession(user) {
+  localStorage.setItem('dc_user', JSON.stringify(user));
+  currentUser = user;
+}
+function loadSession() {
+  try { return JSON.parse(localStorage.getItem('dc_user')); } catch { return null; }
+}
+function clearSession() {
+  localStorage.removeItem('dc_user');
+  currentUser = null;
+}
+
+// ── 작업일 계산 (서울 04:00 기준) ─────────
+function getWorkDate() {
+  const now = new Date();
+  const seoul = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+  if (seoul.getHours() < 4) seoul.setDate(seoul.getDate() - 1);
+  const y = seoul.getFullYear();
+  const m = String(seoul.getMonth() + 1).padStart(2, '0');
+  const d = String(seoul.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+function getWorkDateLabel(dateStr) {
+  const [y, m, d] = dateStr.split('-');
+  const days = ['일','월','화','수','목','금','토'];
+  const dt = new Date(Number(y), Number(m)-1, Number(d));
+  return `${m}월 ${d}일 (${days[dt.getDay()]})`;
+}
+
+// ── 토스트 ────────────────────────────────
+function showToast(msg, duration=2500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), duration);
+}
+function showErr(el, msg) { el.textContent = msg; el.style.display = 'block'; }
+
+// ── 패널 전환 ─────────────────────────────
+function showPanel(name) {
+  document.getElementById('panel-login').style.display    = name === 'login'   ? 'block' : 'none';
+  document.getElementById('panel-resetpw').style.display = name === 'resetpw' ? 'block' : 'none';
+  document.getElementById('panel-adduser').style.display = name === 'adduser' ? 'block' : 'none';
+  // adduser 열 때 초기화
+  if (name === 'adduser') {
+    document.getElementById('add-master').value = '';
+    document.getElementById('add-master-error').style.display = 'none';
+    document.getElementById('add-user-form').style.display = 'none';
+    document.getElementById('add-master-section').style.display = 'block';
+  }
+}
+
+// ── 마스터코드 확인 ───────────────────────
+function verifyMaster() {
+  const master = document.getElementById('add-master').value;
+  const errEl  = document.getElementById('add-master-error');
+  if (master !== MASTER_CODE) {
+    showErr(errEl, '마스터 코드가 올바르지 않습니다.');
+    return;
+  }
+  errEl.style.display = 'none';
+  document.getElementById('add-master-section').style.display = 'none';
+  document.getElementById('add-user-form').style.display = 'block';
+  loadAdduserList();
+}
+
+// ── 사용자 추가 ───────────────────────────
+async function handleAddUser() {
+  const name  = document.getElementById('add-name').value.trim();
+  const pw    = document.getElementById('add-pw').value;
+  const role  = document.getElementById('add-role').value;
+  const errEl = document.getElementById('add-error');
+  const okEl  = document.getElementById('add-success');
+  const btn   = document.getElementById('add-btn');
+
+  errEl.style.display = 'none'; okEl.style.display = 'none';
+
+  if (!name)    return showErr(errEl, '이름을 입력해주세요.');
+  if (pw.length < 4) return showErr(errEl, '비밀번호는 4자 이상이어야 합니다.');
+
+  btn.disabled = true; btn.textContent = '추가 중...';
+
+  const { error } = await sb.from('daily_users').insert({ name, password: pw, role });
+
+  btn.disabled = false; btn.textContent = '사용자 추가';
+
+  if (error) {
+    if (error.message.includes('unique') || error.code === '23505') {
+      showErr(errEl, '이미 존재하는 이름입니다.');
+    } else {
+      showErr(errEl, '오류: ' + error.message);
+    }
+    return;
+  }
+
+  okEl.textContent = `✓ "${name}" 추가 완료!`;
+  okEl.style.display = 'block';
+  document.getElementById('add-name').value = '';
+  document.getElementById('add-pw').value = '';
+  setTimeout(() => { okEl.style.display = 'none'; }, 2000);
+
+  await loadAdduserList();
+  await loadUserDropdowns();
+}
+
+// ── 사용자 목록 (추가 패널용) ─────────────
+async function loadAdduserList() {
+  const { data: users } = await sb
+    .from('daily_users')
+    .select('id, name, role, created_at')
+    .order('created_at', { ascending: true });
+
+  const listEl = document.getElementById('add-user-list');
+  if (!users || users.length === 0) {
+    listEl.innerHTML = '<div style="font-size:13px;color:var(--text-muted);text-align:center;padding:12px;">등록된 사용자가 없습니다.</div>';
+    return;
+  }
+
+  listEl.innerHTML = `
+    <div style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">등록된 사용자 (${users.length}명)</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="border-bottom:2px solid var(--border);">
+          <th style="text-align:left;padding:6px 4px;color:var(--text-muted);font-weight:600;">#</th>
+          <th style="text-align:left;padding:6px 4px;color:var(--text-muted);font-weight:600;">이름</th>
+          <th style="text-align:left;padding:6px 4px;color:var(--text-muted);font-weight:600;">권한</th>
+          <th style="text-align:right;padding:6px 4px;color:var(--text-muted);font-weight:600;">관리</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${users.map((u, i) => `
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:8px 4px;color:var(--text-muted);">${i+1}</td>
+            <td style="padding:8px 4px;font-weight:600;">${u.name}</td>
+            <td style="padding:8px 4px;color:${u.role==='admin'?'var(--accent)':'var(--text-secondary)'};">${u.role==='admin'?'관리자':'팀원'}</td>
+            <td style="padding:8px 4px;text-align:right;">
+              <button onclick="deleteUser('${u.id}','${u.name}')"
+                style="padding:4px 10px;background:var(--danger-light);border:1px solid #fca5a5;border-radius:6px;font-size:12px;color:var(--danger);cursor:pointer;font-family:inherit;font-weight:600;">
+                삭제
+              </button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+// ── 사용자 삭제 ───────────────────────────
+async function deleteUser(id, name) {
+  if (!confirm(`"${name}"을(를) 삭제하시겠습니까?`)) return;
+  const { error } = await sb.from('daily_users').delete().eq('id', id);
+  if (error) { showToast('삭제 실패'); return; }
+  showToast(`"${name}" 삭제 완료`);
+  await loadAdduserList();
+  await loadUserDropdowns();
+}
+
+// ── 사용자 목록 드롭다운 로드 ─────────────
+async function loadUserDropdowns() {
+  const { data: users } = await sb
+    .from('daily_users')
+    .select('id, name')
+    .order('created_at', { ascending: true });
+
+  const opts = (users || []).map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+  const placeholder = '<option value="">-- 이름을 선택하세요 --</option>';
+
+  document.getElementById('login-name').innerHTML  = placeholder + opts;
+  document.getElementById('reset-name').innerHTML  = placeholder + opts;
+}
+
+// ── 로그인 ────────────────────────────────
+async function handleLogin() {
+  const userId = document.getElementById('login-name').value;
+  const pw     = document.getElementById('login-pw').value;
+  const errEl  = document.getElementById('login-error');
+  const btn    = document.getElementById('login-btn');
+
+  errEl.style.display = 'none';
+  if (!userId) return showErr(errEl, '이름을 선택해주세요.');
+  if (!pw)     return showErr(errEl, '비밀번호를 입력해주세요.');
+
+  btn.disabled = true; btn.textContent = '로그인 중...';
+
+  const { data: user, error } = await sb
+    .from('daily_users')
+    .select('id, name, role, password')
+    .eq('id', userId)
+    .single();
+
+  btn.disabled = false; btn.textContent = '로그인';
+
+  if (error || !user) return showErr(errEl, '사용자 정보를 찾을 수 없습니다.');
+  if (user.password !== pw) return showErr(errEl, '비밀번호가 올바르지 않습니다.');
+
+  saveSession({ id: user.id, name: user.name, role: user.role });
+  await initMainScreen();
+}
+
+// ── 비밀번호 재설정 (마스터코드) ─────────
+async function handleResetPw() {
+  const userId  = document.getElementById('reset-name').value;
+  const master  = document.getElementById('reset-master').value;
+  const newPw   = document.getElementById('reset-new').value;
+  const newPw2  = document.getElementById('reset-new2').value;
+  const errEl   = document.getElementById('reset-error');
+  const okEl    = document.getElementById('reset-success');
+  const btn     = document.getElementById('reset-btn');
+
+  errEl.style.display = 'none'; okEl.style.display = 'none';
+
+  if (!userId)           return showErr(errEl, '이름을 선택해주세요.');
+  if (master !== MASTER_CODE) return showErr(errEl, '마스터 코드가 올바르지 않습니다.');
+  if (newPw.length < 4)  return showErr(errEl, '비밀번호는 4자 이상이어야 합니다.');
+  if (newPw !== newPw2)  return showErr(errEl, '비밀번호가 일치하지 않습니다.');
+
+  btn.disabled = true; btn.textContent = '처리 중...';
+
+  const { error } = await sb
+    .from('daily_users')
+    .update({ password: newPw })
+    .eq('id', userId);
+
+  btn.disabled = false; btn.textContent = '비밀번호 재설정';
+
+  if (error) return showErr(errEl, '오류가 발생했습니다.');
+
+  okEl.textContent = '✓ 비밀번호가 변경되었습니다! 로그인 화면으로 이동합니다.';
+  okEl.style.display = 'block';
+  ['reset-name','reset-master','reset-new','reset-new2'].forEach(id => document.getElementById(id).value = '');
+  setTimeout(() => { showPanel('login'); okEl.style.display='none'; }, 2500);
+}
+
+// ── 로그아웃 ──────────────────────────────
+function handleLogout() {
+  clearSession();
+  document.getElementById('main-screen').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('login-pw').value = '';
+}
+
+// ── 설정 - 비밀번호 변경 ──────────────────
+async function handleChangePw() {
+  const oldPw  = document.getElementById('s-old').value;
+  const newPw  = document.getElementById('s-new').value;
+  const newPw2 = document.getElementById('s-new2').value;
+  const errEl  = document.getElementById('s-error');
+  const okEl   = document.getElementById('s-success');
+  const btn    = document.getElementById('s-btn');
+
+  errEl.style.display = 'none'; okEl.style.display = 'none';
+
+  if (!oldPw)           return showErr(errEl, '현재 비밀번호를 입력해주세요.');
+  if (newPw.length < 4) return showErr(errEl, '새 비밀번호는 4자 이상이어야 합니다.');
+  if (newPw !== newPw2) return showErr(errEl, '새 비밀번호가 일치하지 않습니다.');
+  if (oldPw === newPw)  return showErr(errEl, '현재 비밀번호와 동일합니다.');
+
+  btn.disabled = true; btn.textContent = '처리 중...';
+
+  // 현재 비밀번호 확인
+  const { data: user } = await sb
+    .from('daily_users')
+    .select('password')
+    .eq('id', currentUser.id)
+    .single();
+
+  if (!user || user.password !== oldPw) {
+    showErr(errEl, '현재 비밀번호가 올바르지 않습니다.');
+    btn.disabled = false; btn.textContent = '비밀번호 변경';
+    return;
+  }
+
+  const { error } = await sb
+    .from('daily_users')
+    .update({ password: newPw })
+    .eq('id', currentUser.id);
+
+  btn.disabled = false; btn.textContent = '비밀번호 변경';
+
+  if (error) return showErr(errEl, '오류가 발생했습니다.');
+
+  okEl.textContent = '✓ 비밀번호가 변경되었습니다!';
+  okEl.style.display = 'block';
+  ['s-old','s-new','s-new2'].forEach(id => document.getElementById(id).value = '');
+  setTimeout(() => {
+    document.getElementById('settings-modal').classList.remove('open');
+    okEl.style.display = 'none';
+  }, 2000);
+}
+
+// ── 메인 화면 초기화 ──────────────────────
+async function initMainScreen() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('main-screen').style.display = 'block';
+
+  const workDate = getWorkDate();
+  document.getElementById('work-date-badge').textContent = getWorkDateLabel(workDate);
+  document.getElementById('user-name-display').textContent = currentUser.name;
+  document.getElementById('user-role-display').textContent = currentUser.role === 'admin' ? '관리자' : '팀원';
+
+  if (currentUser.role === 'admin') {
+    document.getElementById('admin-section').style.display = 'block';
+  }
+
+  await loadTeams(workDate);
+  await loadTodayIssues(workDate);
+}
+
+// ── 팀 목록 ──────────────────────────────
+const TEAM_EMOJIS = { '2차생산팀':'🏭','1차생산팀':'☕','완제품생산팀':'📦','전산팀':'💻' };
+
+async function loadTeams(workDate) {
+  const grid = document.getElementById('team-grid');
+  const { data: teams } = await sb
+    .from('daily_teams')
+    .select('id, name')
+    .order('sort_order', { ascending: true });
+
+  if (!teams || teams.length === 0) {
+    grid.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">🏢</div>
+      <div class="empty-text">등록된 팀이 없습니다.<br>관리자에게 팀 추가를 요청하세요.</div>
+    </div>`;
+    return;
+  }
+
+  const { data: checklists } = await sb
+    .from('daily_checklists')
+    .select('id, team_id, daily_checklist_items(id, status)')
+    .in('team_id', teams.map(t => t.id))
+    .eq('work_date', workDate);
+
+  const progressMap = {};
+  (checklists || []).forEach(cl => {
+    const items = cl.daily_checklist_items || [];
+    progressMap[cl.team_id] = {
+      total: items.length,
+      done: items.filter(i => i.status !== 'pending').length,
+      hasIssue: items.some(i => i.status === 'N')
+    };
+  });
+
+  grid.innerHTML = teams.map(team => {
+    const prog = progressMap[team.id];
+    const emoji = TEAM_EMOJIS[team.name] || '🏢';
+    let barHTML = '', badgeHTML = '';
+
+    if (prog && prog.total > 0) {
+      const pct = Math.round((prog.done / prog.total) * 100);
+      const cls = prog.hasIssue ? 'has-issue' : prog.done === prog.total ? 'complete' : '';
+      barHTML = `<div class="team-progress-bar"><div class="team-progress-fill ${cls}" style="width:${pct}%"></div></div>
+                 <div class="team-progress-text">${prog.done}/${prog.total} 완료</div>`;
+      badgeHTML = prog.hasIssue ? '<span class="team-badge badge-issue">이상있음</span>'
+        : prog.done === prog.total ? '<span class="team-badge badge-complete">완료</span>'
+        : '<span class="team-badge badge-pending">진행중</span>';
+    } else {
+      barHTML = `<div class="team-progress-bar"><div class="team-progress-fill" style="width:0%"></div></div>
+                 <div class="team-progress-text">미시작</div>`;
+      badgeHTML = '<span class="team-badge badge-pending">미시작</span>';
+    }
+
+    return `<a class="team-card" href="checklist.html?team=${team.id}&date=${workDate}">
+      <span class="team-emoji">${emoji}</span>
+      <div class="team-name">${team.name}</div>
+      ${barHTML}${badgeHTML}
+    </a>`;
+  }).join('');
+}
+
+// ── 오늘 이상사항 ─────────────────────────
+async function loadTodayIssues(workDate) {
+  const { data: issues } = await sb
+    .from('daily_checklist_items')
+    .select('item_name, memo, daily_checklists!inner(work_date, daily_teams(name)), checked_by')
+    .eq('status', 'N')
+    .eq('daily_checklists.work_date', workDate)
+    .order('checked_at', { ascending: false })
+    .limit(10);
+
+  if (!issues || issues.length === 0) return;
+
+  // checked_by(UUID)로 이름 조회
+  const checkerIds = [...new Set(issues.map(i => i.checked_by).filter(Boolean))];
+  let checkerMap = {};
+  if (checkerIds.length > 0) {
+    const { data: checkers } = await sb
+      .from('daily_users')
+      .select('id, name')
+      .in('id', checkerIds);
+    (checkers || []).forEach(c => { checkerMap[c.id] = c.name; });
+  }
+
+  document.getElementById('issue-section').style.display = 'block';
+  document.getElementById('issue-list').innerHTML = issues.map(item => {
+    const teamName = item.daily_checklists?.daily_teams?.name || '-';
+    const checker  = checkerMap[item.checked_by] || '-';
+    return `<div class="issue-item">
+      <div class="issue-dot"></div>
+      <div class="issue-content">
+        <div class="issue-item-name">[${teamName}] ${item.item_name}</div>
+        <div class="issue-meta">작성자: ${checker}</div>
+        ${item.memo ? `<div class="issue-memo">"${item.memo}"</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── 엔터키 ────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  if (document.getElementById('panel-login').style.display !== 'none') handleLogin();
+  else if (document.getElementById('panel-resetpw').style.display !== 'none') handleResetPw();
+});
+
+// ── 앱 시작 ──────────────────────────────
+(async () => {
+  document.getElementById('main-screen').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+
+  await loadUserDropdowns();
+
+  const saved = loadSession();
+  if (saved) {
+    // 저장된 세션 유효성 확인
+    const { data: user } = await sb
+      .from('daily_users')
+      .select('id, name, role')
+      .eq('id', saved.id)
+      .single();
+
+    if (user) {
+      currentUser = user;
+      await initMainScreen();
+    } else {
+      clearSession();
+    }
+  }
+})();
+</script>
+</body>
+</html>
