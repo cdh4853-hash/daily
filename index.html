@@ -186,7 +186,7 @@ body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic 
         <div class="fg"><label class="fl">이름</label><input class="fi" type="text" id="aun" placeholder="이름 입력"></div>
         <div class="fg"><label class="fl">비밀번호</label><input class="fi" type="password" id="aup" placeholder="초기 비밀번호 (4자 이상)"></div>
         <div class="fg"><label class="fl">권한</label><div class="sw"><select class="fsel" id="aur"><option value="member">팀원</option><option value="admin">관리자</option></select></div></div>
-        <div class="fg"><label class="fl">소속팀 (선택 시 개인 체크리스트 자동 생성)</label><div class="sw"><select class="fsel" id="aut"><option value="">선택 안함</option><option value="생산팀 공통">생산팀 공통</option><option value="2차생산팀">2차생산팀</option><option value="생산포장팀">생산포장팀</option></select></div></div>
+        <div class="fg"><label class="fl">소속팀 (선택 시 개인 체크리스트 자동 생성)</label><div class="sw"><select class="fsel" id="aut"><option value="">선택 안함</option></select></div></div>
         <button class="bp full" id="aubtn" onclick="doAddUser()">사용자 추가</button>
         <div class="msg err" id="auerr"></div><div class="msg ok" id="auok"></div>
         <div id="aulist" style="margin-top:18px;"></div>
@@ -210,7 +210,7 @@ body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic 
     </div>
   </div>
   <div class="wrap">
-    <div class="sh2" style="margin-top:4px;"><div class="st">팀 선택</div><div class="ss">팀을 선택해 오늘의 체크리스트를 작성하세요</div></div>
+    <div class="sh2" style="margin-top:4px;"><div class="st">체크리스트</div></div>
     <div id="tgrid">
       <div class="tgrid">
         <div class="tcard sk" style="height:110px;"></div>
@@ -308,11 +308,17 @@ body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic 
     <!-- 사용자 탭 -->
     <div class="tabp" id="tp-users">
       <div class="card">
+        <div class="ctitle">🏷 소속팀 카테고리 관리 <span style="font-size:12px;color:var(--t3);font-weight:400;">— 이름을 바꾸면 연결된 사용자·체크리스트에 자동 반영돼요</span></div>
+        <div class="frow"><input class="fi" type="text" id="tci" placeholder="카테고리명 입력 (예: 원두포장팀)" style="flex:1;"><button class="bp" onclick="addTeamCat()">추가</button></div>
+        <div class="msg err" id="tcerr"></div>
+        <div id="tclist" style="margin-top:12px;"></div>
+      </div>
+      <div class="card">
         <div class="ctitle">➕ 사용자 추가</div>
         <div class="fg"><label class="fl">이름</label><input class="fi" type="text" id="uni" placeholder="이름"></div>
         <div class="fg"><label class="fl">비밀번호</label><input class="fi" type="password" id="upi" placeholder="초기 비밀번호 (4자 이상)"></div>
         <div class="fg"><label class="fl">권한</label><div class="sw"><select class="fsel" id="uri"><option value="member">팀원</option><option value="admin">관리자</option></select></div></div>
-        <div class="fg"><label class="fl">소속팀 (선택 시 개인 체크리스트 자동 생성)</label><div class="sw"><select class="fsel" id="uti"><option value="">선택 안함</option><option value="생산팀 공통">생산팀 공통</option><option value="2차생산팀">2차생산팀</option><option value="생산포장팀">생산포장팀</option></select></div></div>
+        <div class="fg"><label class="fl">소속팀 (선택 시 개인 체크리스트 자동 생성)</label><div class="sw"><select class="fsel" id="uti"><option value="">선택 안함</option></select></div></div>
         <button class="bp full" onclick="adminAddU()">사용자 추가</button>
         <div class="msg err" id="uerr"></div><div class="msg ok" id="uok"></div>
       </div>
@@ -337,6 +343,8 @@ body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic 
     <button class="bsm" onclick="goMain()">← 홈으로</button>
   </div>
   <div class="wrap">
+    <!-- 최근 누락 현황 -->
+    <div id="hist-missing"></div>
     <!-- 날짜 조회 컨트롤 -->
     <div class="card" style="margin-bottom:14px;">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -479,6 +487,7 @@ function verifyM(){
   $('au-ms').classList.add('hidden');
   $('au-form').classList.remove('hidden');
   loadAuList();
+  loadTeamCats();
 }
 
 async function createOwnedChecklist(userId,userName,teamCategory){
@@ -623,7 +632,7 @@ async function loadTeams(wd){
     groups[gi[cat]].items.push(t);
   });
   grid.innerHTML=groups.map((g,idx)=>`
-    <div class="sh2" style="margin-top:${idx===0?'0':'22px'};margin-bottom:10px;"><div class="st" style="font-size:15px;">${CATEMOJI[g.cat]||'🏢'} ${g.cat}</div><div class="ss">${g.items.length}개</div></div>
+    <div class="sh2" style="margin-top:${idx===0?'0':'22px'};margin-bottom:10px;"><div class="st" style="font-size:15px;">${CATEMOJI[g.cat]||'🏢'} ${g.cat}</div></div>
     <div class="tgrid">${g.items.map(cardHtml).join('')}</div>
   `).join('');
 }
@@ -886,7 +895,46 @@ async function goHistory(){
   show('sc-hist');
   // 기본값: 오늘
   if(!$('hist-date').value) $('hist-date').value=workDate();
+  await loadMissing();
   await loadHist();
+}
+
+async function loadMissing(){
+  const el=$('hist-missing');
+  const{data:teams}=await sb.from('daily_teams').select('id,name,owner_user_id');
+  let relevant=teams||[];
+  if(!CU.is_master && CU.role!=='admin' && CU.team_category!=='생산팀 공통'){
+    relevant=relevant.filter(t=>t.owner_user_id===CU.id);
+  }
+  if(!relevant.length){ el.innerHTML=''; return; }
+
+  const days=[]; const base=new Date(workDate()+'T12:00:00');
+  for(let i=1;i<=7;i++){ const d=new Date(base); d.setDate(d.getDate()-i); days.push(d.toISOString().split('T')[0]); }
+
+  const{data:cls}=await sb.from('daily_checklists').select('team_id,work_date,daily_checklist_items(status)').in('team_id',relevant.map(t=>t.id)).in('work_date',days);
+  const has={};
+  (cls||[]).forEach(cl=>{
+    has[cl.team_id]=has[cl.team_id]||{};
+    const items=cl.daily_checklist_items||[];
+    has[cl.team_id][cl.work_date]={total:items.length,done:items.filter(i=>i.status!=='pending').length};
+  });
+
+  const missingByTeam=relevant.map(t=>{
+    const miss=days.filter(d=>{
+      const rec=has[t.id]?.[d];
+      return !rec || (rec.total>0 && rec.done<rec.total);
+    }).sort();
+    return{id:t.id,name:t.name,owner_user_id:t.owner_user_id,miss};
+  }).filter(x=>x.miss.length);
+
+  if(!missingByTeam.length){
+    el.innerHTML='<div class="card" style="margin-bottom:14px;"><div style="font-size:13px;color:var(--ok);">✓ 최근 7일 누락된 체크리스트가 없습니다</div></div>';
+    return;
+  }
+  el.innerHTML=`<div class="card" style="margin-bottom:14px;">
+    <div class="ctitle" style="color:var(--ng);">⚠ 최근 7일 누락 현황 <span style="font-size:12px;color:var(--t3);font-weight:400;">— 클릭하면 해당 날짜 체크리스트로 이동</span></div>
+    ${missingByTeam.map(x=>`<div style="font-size:13px;margin-top:8px;"><strong>${x.name}</strong><br>${x.miss.map(d=>{const[,m,dd]=d.split('-');return `<span class="tbadge bi" style="margin-right:4px;margin-top:4px;display:inline-block;cursor:pointer;" onclick="openCL('${x.id}','${x.name}','${d}','${x.owner_user_id||''}')">${m}/${dd} 누락</span>`;}).join('')}</div>`).join('')}
+  </div>`;
 }
 
 // ── 관리자 탭 ────────────────────────────
@@ -895,7 +943,7 @@ function swTab(name){
   document.querySelectorAll('.tabp').forEach(p=>p.classList.remove('on'));
   $('tp-'+name).classList.add('on');
   if(name==='tpl') loadTplTabs();
-  if(name==='users') loadAdUsers();
+  if(name==='users') loadTeamCats().then(loadAdUsers);
   if(name==='monitor') loadMonitor();
 }
 
@@ -1055,6 +1103,78 @@ async function mvTpl(id,dir){
 }
 
 // 사용자 관리
+// ── 소속팀 카테고리 관리 ──────────────────
+let teamCategories=[], editingCatId=null;
+
+async function loadTeamCats(){
+  const{data}=await sb.from('daily_team_categories').select('*').order('sort_order');
+  teamCategories=data||[];
+  populateTeamCatSelect('uti');
+  populateTeamCatSelect('aut');
+  renderTeamCatList();
+}
+
+function populateTeamCatSelect(selId){
+  const sel=$(selId); if(!sel) return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">선택 안함</option>'+teamCategories.map(c=>`<option value="${c.name}">${c.name}</option>`).join('');
+  if([...sel.options].some(o=>o.value===cur)) sel.value=cur;
+}
+
+function renderTeamCatList(){
+  const el=$('tclist'); if(!el) return;
+  if(!teamCategories.length){el.innerHTML='<div class="empty"><div class="ei">🏷</div>등록된 카테고리가 없습니다</div>';return;}
+  el.innerHTML=`<table class="dt"><thead><tr><th style="width:32px;">#</th><th>카테고리명</th><th style="width:100px;text-align:right;">관리</th></tr></thead><tbody>
+  ${teamCategories.map((c,i)=>{
+    if(editingCatId===c.id){
+      return `<tr><td style="color:var(--t3);">${i+1}</td>
+      <td><input class="fi" type="text" id="etc-${c.id}" value="${c.name.replace(/"/g,'&quot;')}" style="padding:6px 8px;font-size:13px;"></td>
+      <td style="text-align:right;white-space:nowrap;"><button class="bg" onclick="saveEditTeamCat('${c.id}','${c.name.replace(/'/g,"\\'")}')">저장</button> <button class="bg" onclick="cancelEditTeamCat()">취소</button></td></tr>`;
+    }
+    return `<tr><td style="color:var(--t3);">${i+1}</td>
+    <td><strong>${c.name}</strong></td>
+    <td style="text-align:right;"><button class="bg" onclick="startEditTeamCat('${c.id}')">수정</button></td></tr>`;
+  }).join('')}</tbody></table>`;
+}
+
+function startEditTeamCat(id){ editingCatId=id; renderTeamCatList(); }
+function cancelEditTeamCat(){ editingCatId=null; renderTeamCatList(); }
+
+async function addTeamCat(){
+  const name=$('tci').value.trim(); hmsg('tcerr');
+  if(!name) return msg('tcerr','이름을 입력해주세요.');
+  const mo=teamCategories.length?Math.max(...teamCategories.map(c=>c.sort_order))+1:0;
+  const{error}=await sb.from('daily_team_categories').insert({name,sort_order:mo});
+  if(error){
+    if(error.code==='23505') return msg('tcerr','이미 존재하는 이름입니다.');
+    return msg('tcerr','오류: '+error.message);
+  }
+  $('tci').value=''; toast(`"${name}" 추가 완료`);
+  await loadTeamCats();
+}
+
+async function saveEditTeamCat(id,oldName){
+  const inp=$('etc-'+id); const newName=inp.value.trim();
+  if(!newName) return toast('이름을 입력해주세요.');
+  if(newName===oldName){ editingCatId=null; return renderTeamCatList(); }
+  const{error}=await sb.from('daily_team_categories').update({name:newName}).eq('id',id);
+  if(error){
+    if(error.code==='23505') return toast('이미 존재하는 이름입니다.');
+    return toast('오류: '+error.message);
+  }
+  // 연쇄 반영 1: 이 카테고리로 지정된 사용자
+  await sb.from('daily_users').update({team_category:newName}).eq('team_category',oldName);
+  // 연쇄 반영 2: [oldName] 접두어로 시작하는 체크리스트명
+  const{data:affected}=await sb.from('daily_teams').select('id,name').like('name',`[${oldName}]%`);
+  for(const t of (affected||[])){
+    const rest=t.name.slice(oldName.length+2);
+    await sb.from('daily_teams').update({name:`[${newName}]${rest}`}).eq('id',t.id);
+  }
+  editingCatId=null;
+  toast(`✓ "${oldName}" → "${newName}" 변경 완료 (연결 체크리스트 ${affected?.length||0}건 함께 반영)`);
+  await loadTeamCats();
+}
+
 async function loadAdUsers(){
   const{data:users}=await sb.from('daily_users').select('*').order('created_at');
   const el=$('ulist');
@@ -1076,9 +1196,7 @@ async function loadAdUsers(){
   </select></td>
   <td><select onchange="chTeamCat('${u.id}','${un}',this.value)" style="padding:4px 8px;border:1px solid var(--bdr);border-radius:6px;font-size:12px;background:var(--sur);font-family:inherit;cursor:pointer;">
     <option value="" ${!u.team_category?'selected':''}>선택 안함</option>
-    <option value="생산팀 공통" ${u.team_category==='생산팀 공통'?'selected':''}>생산팀 공통</option>
-    <option value="2차생산팀" ${u.team_category==='2차생산팀'?'selected':''}>2차생산팀</option>
-    <option value="생산포장팀" ${u.team_category==='생산포장팀'?'selected':''}>생산포장팀</option>
+    ${teamCategories.map(c=>`<option value="${c.name}" ${u.team_category===c.name?'selected':''}>${c.name}</option>`).join('')}
   </select></td>
   <td style="text-align:right;"><button class="bd" onclick="adDelU('${u.id}','${u.name}')">삭제</button></td></tr>`;}).join('')}
   </tbody></table>`;
@@ -1224,9 +1342,14 @@ async function loadHist(){
 
   wrap.innerHTML='<div class="empty"><div class="ei">📋</div>불러오는 중...</div>';
 
-  const{data:cls}=await sb.from('daily_checklists')
-    .select('id,work_date,daily_teams(name),daily_checklist_items(id,status,item_name,memo,sort_order)')
+  const{data:raw}=await sb.from('daily_checklists')
+    .select('id,work_date,daily_teams(name,owner_user_id),daily_checklist_items(id,status,item_name,memo,sort_order)')
     .eq('work_date',selDate).order('work_date',{ascending:false});
+
+  let cls=raw||[];
+  if(!CU.is_master && CU.role!=='admin' && CU.team_category!=='생산팀 공통'){
+    cls=cls.filter(cl=>cl.daily_teams?.owner_user_id===CU.id);
+  }
 
   if(!cls||!cls.length){
     wrap.innerHTML='<div class="empty"><div class="ei">📋</div>해당 날짜의 기록이 없습니다<br><small style="color:var(--t3);">${selDate}</small></div>';
