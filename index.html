@@ -263,6 +263,7 @@ body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic 
       <button class="blnk" onclick="toggleClTplPanel()" style="margin-top:8px;">닫기</button>
     </div>
     <div class="pbar"><div class="pfill" id="cl-pb" style="width:0%"></div></div>
+    <div id="cl-pastbnr" class="hidden wbnr">🔒 지난 날짜의 체크리스트는 마감되어 새로 입력할 수 없습니다 (조회만 가능)</div>
     <div id="cl-ib" class="hidden bnr" style="margin-top:8px;">⚠ 이상 항목이 있습니다 — 비고란에 상세 내용을 기록해주세요</div>
     <div id="cl-wrap" style="margin-top:12px;"></div>
     <div style="margin:20px 0 40px;">
@@ -309,8 +310,8 @@ body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic 
     <!-- 사용자 탭 -->
     <div class="tabp" id="tp-users">
       <div class="card">
-        <div class="ctitle">🏷 소속팀 카테고리 관리 <span style="font-size:12px;color:var(--t3);font-weight:400;">— 이름을 바꾸면 연결된 사용자·체크리스트에 자동 반영돼요</span></div>
-        <div class="frow"><input class="fi" type="text" id="tci" placeholder="카테고리명 입력 (예: 원두포장팀)" style="flex:1;"><button class="bp" onclick="addTeamCat()">추가</button></div>
+        <div class="ctitle">🏷 소속팀 관리 <span style="font-size:12px;color:var(--t3);font-weight:400;">— 이름을 바꾸면 연결된 사용자·체크리스트에 자동 반영돼요</span></div>
+        <div class="frow"><input class="fi" type="text" id="tci" placeholder="팀명 입력 (예: 원두포장팀)" style="flex:1;"><button class="bp" onclick="addTeamCat()">추가</button></div>
         <div class="msg err" id="tcerr"></div>
         <div id="tclist" style="margin-top:12px;"></div>
       </div>
@@ -394,7 +395,7 @@ const sb=createClient(SB_URL,SB_KEY);
 let CU=null; // 현재 유저
 let selTeamId=null;
 let allTeams=[];
-let clId=null, clItems=[], stimer=null, clTeamId=null, clOwnerId=null;
+let clId=null, clItems=[], stimer=null, clTeamId=null, clOwnerId=null, clIsPast=false;
 
 // ── 유틸 ─────────────────────────────────
 const $=id=>document.getElementById(id);
@@ -543,7 +544,9 @@ async function loadAuList(){
 }
 
 async function delAuUser(id,name){
-  if(!confirm(`"${name}"을(를) 삭제하시겠습니까?`)) return;
+  if(!confirm(`"${name}"을(를) 삭제하시겠습니까?\n⚠ 해당 사용자의 체크리스트와 템플릿도 모두 삭제됩니다.`)) return;
+  const{data:owned}=await sb.from('daily_teams').select('id').eq('owner_user_id',id);
+  if(owned&&owned.length) await sb.from('daily_teams').delete().in('id',owned.map(t=>t.id));
   await sb.from('daily_users').delete().eq('id',id);
   toast(`"${name}" 삭제 완료`);
   await loadAuList();
@@ -681,18 +684,34 @@ async function loadIssues(wd){
 // ── 체크리스트 ───────────────────────────
 async function openCL(teamId, teamName, wd, ownerId){
   clTeamId=teamId; clOwnerId=ownerId||null;
+  clIsPast = wd < workDate();
   $('cl-tn').textContent=teamName;
   $('cl-wd').textContent=wdLabel(wd)+' 작업일';
   $('cl-wrap').innerHTML='<div class="empty"><div class="ei">📋</div>불러오는 중...</div>';
   $('cl-ib').classList.add('hidden');
+  $('cl-pastbnr').classList.toggle('hidden', !clIsPast);
   $('cl-sv').textContent='';
   $('cl-tplpanel').classList.add('hidden');
-  $('cl-tplbtn-wrap').classList.toggle('hidden', !(CU.role==='admin'||CU.id===clOwnerId));
+  $('cl-tplbtn-wrap').classList.toggle('hidden', clIsPast || !(CU.role==='admin'||CU.id===clOwnerId));
   clItems=[];
   show('sc-cl');
 
   // 1) 체크리스트 헤더 조회 (maybeSingle: 없어도 에러 안 남)
   let{data:cl}=await sb.from('daily_checklists').select('id').eq('team_id',teamId).eq('work_date',wd).maybeSingle();
+
+  // 과거 날짜: 신규 생성/템플릿 동기화 없이 이미 기록된 내용만 조회 (누락된 걸 뒤늦게 한번에 입력하는 것 방지)
+  if(clIsPast){
+    if(!cl){
+      clId=null; clItems=[];
+      renderCL();
+      return;
+    }
+    clId=cl.id;
+    const{data:final}=await sb.from('daily_checklist_items').select('*').eq('checklist_id',clId).order('sort_order');
+    clItems=final||[];
+    renderCL();
+    return;
+  }
 
   // 2) 없으면 생성
   if(!cl){
@@ -759,18 +778,21 @@ async function openCL(teamId, teamName, wd, ownerId){
 function renderCL(){
   const wrap=$('cl-wrap');
   if(!clItems.length){
-    wrap.innerHTML='<div class="empty"><div class="ei">📋</div>체크리스트 항목이 없습니다<br><small>관리자 메뉴에서 템플릿을 추가해주세요</small></div>';
+    wrap.innerHTML=clIsPast
+      ? '<div class="empty"><div class="ei">🔒</div>해당 날짜에 작성된 기록이 없습니다<br><small>마감된 날짜라 새로 입력할 수 없습니다</small></div>'
+      : '<div class="empty"><div class="ei">📋</div>체크리스트 항목이 없습니다<br><small>관리자 메뉴에서 템플릿을 추가해주세요</small></div>';
     updProg(); return;
   }
+  const dis=clIsPast;
   wrap.innerHTML=clItems.map((it,idx)=>`
     <div class="citem ${it.status!=='pending'?'s'+it.status:''}" id="ci-${it.id}">
       <div class="iname">${idx+1}. ${it.item_name}</div>
       <div class="sbtns">
-        <button class="sbtn ${it.status==='Y'?'Y':''}" onclick="setSt('${it.id}','Y')">✓ 정상 (Y)</button>
-        <button class="sbtn ${it.status==='N'?'N':''}" onclick="setSt('${it.id}','N')">✗ 이상 (N)</button>
-        <button class="sbtn ${it.status==='NA'?'NA':''}" onclick="setSt('${it.id}','NA')">— 해당없음</button>
+        <button class="sbtn ${it.status==='Y'?'Y':''}" ${dis?'disabled':''} onclick="setSt('${it.id}','Y')">✓ 정상 (Y)</button>
+        <button class="sbtn ${it.status==='N'?'N':''}" ${dis?'disabled':''} onclick="setSt('${it.id}','N')">✗ 이상 (N)</button>
+        <button class="sbtn ${it.status==='NA'?'NA':''}" ${dis?'disabled':''} onclick="setSt('${it.id}','NA')">— 해당없음</button>
       </div>
-      <textarea class="memo" rows="1" placeholder="비고 (선택사항)"
+      <textarea class="memo" rows="1" placeholder="비고 (선택사항)" ${dis?'readonly':''}
         oninput="setMemo('${it.id}',this.value)"
         onfocus="this.rows=3" onblur="if(!this.value)this.rows=1"
       >${it.memo||''}</textarea>
@@ -779,6 +801,7 @@ function renderCL(){
 }
 
 async function setSt(id, st){
+  if(clIsPast) return toast('🔒 마감된 날짜는 수정할 수 없습니다');
   const it=clItems.find(i=>i.id===id); if(!it) return;
   const ns=it.status===st?'pending':st;
   it.status=ns; it.checked_by=CU.id; it.checked_at=new Date().toISOString();
@@ -806,6 +829,7 @@ async function setSt(id, st){
 }
 
 function setMemo(id,memo){
+  if(clIsPast) return;
   const it=clItems.find(i=>i.id===id); if(!it) return;
   it.memo=memo;
   clearTimeout(stimer);
@@ -933,6 +957,11 @@ async function loadMissing(){
   let relevant=teams||[];
   const vc=(CU.role==='admin')?(CU.viewCategories||[]):[];
   relevant=relevant.filter(t=>t.owner_user_id===CU.id || vc.includes(extractCat(t.name)));
+  if(!relevant.length){ el.innerHTML=''; return; }
+
+  const{data:tpls0}=await sb.from('daily_templates').select('team_id').in('team_id',relevant.map(t=>t.id)).eq('is_active',true);
+  const tplTeamIds0=new Set((tpls0||[]).map(t=>t.team_id));
+  relevant=relevant.filter(t=>tplTeamIds0.has(t.id));
   if(!relevant.length){ el.innerHTML=''; return; }
 
   const days=[]; const base=new Date(workDate()+'T12:00:00');
@@ -1150,8 +1179,8 @@ function populateTeamCatSelect(selId){
 
 function renderTeamCatList(){
   const el=$('tclist'); if(!el) return;
-  if(!teamCategories.length){el.innerHTML='<div class="empty"><div class="ei">🏷</div>등록된 카테고리가 없습니다</div>';return;}
-  el.innerHTML=`<table class="dt"><thead><tr><th style="width:32px;">#</th><th>카테고리명</th><th style="width:100px;text-align:right;">관리</th></tr></thead><tbody>
+  if(!teamCategories.length){el.innerHTML='<div class="empty"><div class="ei">🏷</div>등록된 팀이 없습니다</div>';return;}
+  el.innerHTML=`<table class="dt"><thead><tr><th style="width:32px;">#</th><th>팀명</th><th style="width:130px;text-align:right;">관리</th></tr></thead><tbody>
   ${teamCategories.map((c,i)=>{
     if(editingCatId===c.id){
       return `<tr><td style="color:var(--t3);">${i+1}</td>
@@ -1160,7 +1189,7 @@ function renderTeamCatList(){
     }
     return `<tr><td style="color:var(--t3);">${i+1}</td>
     <td><strong>${c.name}</strong></td>
-    <td style="text-align:right;"><button class="bg" onclick="startEditTeamCat('${c.id}')">수정</button></td></tr>`;
+    <td style="text-align:right;white-space:nowrap;"><button class="bg" onclick="startEditTeamCat('${c.id}')">수정</button> <button class="bd" onclick="delTeamCat('${c.id}','${c.name.replace(/'/g,"\\'")}')">삭제</button></td></tr>`;
   }).join('')}</tbody></table>`;
 }
 
@@ -1204,6 +1233,18 @@ async function saveEditTeamCat(id,oldName){
   await loadAdUsers();
 }
 
+async function delTeamCat(id,name){
+  const{count:uc}=await sb.from('daily_users').select('id',{count:'exact',head:true}).eq('team_category',name);
+  const{count:tc}=await sb.from('daily_teams').select('id',{count:'exact',head:true}).like('name',`[${name}]%`);
+  const warn=(uc||tc)?`\n⚠ 연결된 사용자 ${uc||0}명, 체크리스트 ${tc||0}건은 삭제되지 않고 그대로 남습니다 (소속팀만 미지정 상태가 됩니다).`:'';
+  if(!confirm(`"${name}"을(를) 삭제하시겠습니까?${warn}`)) return;
+  const{error}=await sb.from('daily_team_categories').delete().eq('id',id);
+  if(error) return toast('오류: '+error.message);
+  toast(`"${name}" 삭제 완료`);
+  await loadTeamCats();
+  await loadAdUsers();
+}
+
 async function loadAdUsers(){
   const{data:users}=await sb.from('daily_users').select('*').order('created_at');
   const el=$('ulist');
@@ -1216,7 +1257,7 @@ async function loadAdUsers(){
   const vcRowHtml=u=>{
     const set=vcMap[u.id]||new Set();
     return `<tr><td></td><td colspan="4" style="padding-top:0;padding-bottom:12px;">
-      <div style="font-size:11px;color:var(--t3);margin-bottom:4px;">열람 가능 카테고리 (체크한 카테고리 + 본인 것만 보임, 복수 선택 가능)</div>
+      <div style="font-size:11px;color:var(--t3);margin-bottom:4px;">열람 가능 팀 (체크한 팀 + 본인 것만 보임, 복수 선택 가능)</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;">
       ${teamCategories.map(c=>`<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;border:1px solid var(--bdr);border-radius:6px;padding:3px 8px;cursor:pointer;">
         <input type="checkbox" ${set.has(c.name)?'checked':''} onchange="toggleViewCat('${u.id}','${c.name.replace(/'/g,"\\'")}',this.checked)" style="cursor:pointer;">${c.name}
@@ -1275,9 +1316,9 @@ async function toggleViewCat(userId,catName,checked){
     if(checked){ if(!CU.viewCategories.includes(catName)) CU.viewCategories.push(catName); }
     else{ CU.viewCategories=CU.viewCategories.filter(c=>c!==catName); }
     localStorage.setItem('dc_u',JSON.stringify(CU));
-    toast('✓ 열람 카테고리 반영됨 (바로 적용됨)');
+    toast('✓ 열람 팀 반영됨 (바로 적용됨)');
   }else{
-    toast('✓ 열람 카테고리 반영됨 (해당 사용자는 다음 로그인 시 적용)');
+    toast('✓ 열람 팀 반영됨 (해당 사용자는 다음 로그인 시 적용)');
   }
 }
 
@@ -1335,7 +1376,9 @@ async function chRole(id,role){
 
 async function adDelU(id,name){
   if(id===CU.id) return toast('자기 자신은 삭제할 수 없습니다.');
-  if(!confirm(`"${name}"을(를) 삭제하시겠습니까?`)) return;
+  if(!confirm(`"${name}"을(를) 삭제하시겠습니까?\n⚠ 해당 사용자의 체크리스트와 템플릿도 모두 삭제됩니다.`)) return;
+  const{data:owned}=await sb.from('daily_teams').select('id').eq('owner_user_id',id);
+  if(owned&&owned.length) await sb.from('daily_teams').delete().in('id',owned.map(t=>t.id));
   await sb.from('daily_users').delete().eq('id',id);
   toast(`"${name}" 삭제 완료`); await loadAdUsers();
 }
@@ -1359,7 +1402,7 @@ async function renderMoList(){
   const wd=$('modate').value||workDate();
   const el=$('molist');
   const filtered=moCat==='전체'?moTeams:moTeams.filter(t=>moExtractCat(t.name)===moCat);
-  if(!filtered.length){el.innerHTML='<div class="empty"><div class="ei">📋</div>해당 카테고리에 체크리스트가 없습니다</div>';return;}
+  if(!filtered.length){el.innerHTML='<div class="empty"><div class="ei">📋</div>해당 팀에 체크리스트가 없습니다</div>';return;}
   const{data:cls}=await sb.from('daily_checklists').select('id,team_id,daily_checklist_items(id,status)').in('team_id',filtered.map(t=>t.id)).eq('work_date',wd);
   const pm={};
   (cls||[]).forEach(cl=>{
@@ -1413,8 +1456,13 @@ function selAdCat(c){ admCat=c; document.querySelectorAll('#admcattabs .ttab').f
 
 async function renderAdMissList(){
   const el=$('admisslist');
-  const filtered=admCat==='전체'?admTeams:admTeams.filter(t=>moExtractCat(t.name)===admCat);
-  if(!filtered.length){el.innerHTML='<div class="empty"><div class="ei">📋</div>해당 카테고리에 체크리스트가 없습니다</div>';return;}
+  let filtered=admCat==='전체'?admTeams:admTeams.filter(t=>moExtractCat(t.name)===admCat);
+  if(!filtered.length){el.innerHTML='<div class="empty"><div class="ei">📋</div>해당 팀에 체크리스트가 없습니다</div>';return;}
+
+  const{data:tpls0}=await sb.from('daily_templates').select('team_id').in('team_id',filtered.map(t=>t.id)).eq('is_active',true);
+  const tplTeamIds0=new Set((tpls0||[]).map(t=>t.team_id));
+  filtered=filtered.filter(t=>tplTeamIds0.has(t.id));
+  if(!filtered.length){el.innerHTML='<div class="empty"><div class="ei">✅</div>최근 7일 누락된 체크리스트가 없습니다</div>';return;}
 
   const days=[]; const base=new Date(workDate()+'T12:00:00');
   for(let i=1;i<=7;i++){ const d=new Date(base); d.setDate(d.getDate()-i); const ds=d.toISOString().split('T')[0]; if(ds>=SERVICE_START_DATE) days.push(ds); }
