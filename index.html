@@ -140,6 +140,16 @@ body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic 
 .ttabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
 .ttab{padding:6px 14px;border:1.5px solid var(--bdr);border-radius:20px;background:transparent;font-size:13px;color:var(--t2);cursor:pointer;font-family:inherit;font-weight:500;transition:all .15s;}
 .ttab.on{background:var(--ac);border-color:var(--ac);color:#fff;}
+
+/* 월별 누락 표: 한 화면에 1~12월 + 합계가 다 보이도록 */
+.ywrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.ydt{width:100%;min-width:500px;table-layout:fixed;border-collapse:collapse;font-size:12px;}
+.ydt th,.ydt td{padding:6px 1px;text-align:center;border-bottom:1px solid var(--bdr);vertical-align:middle;overflow:hidden;}
+.ydt th{font-size:11px;color:var(--t3);font-weight:600;border-bottom:2px solid var(--bdr);}
+.ydt .yname{width:64px;text-align:left;padding-left:4px;white-space:nowrap;text-overflow:ellipsis;font-weight:600;position:sticky;left:0;background:var(--sur);z-index:1;}
+.ydt .ysum{width:40px;font-weight:800;position:sticky;right:0;background:var(--sur);z-index:1;box-shadow:-1px 0 0 var(--bdr);}
+.ydt tr.ytot td{background:var(--bg);font-weight:700;}
+.ydt .ynum{display:inline-block;min-width:20px;padding:2px 3px;border-radius:5px;cursor:pointer;font-weight:700;font-size:12px;}
 </style>
 </head>
 <body>
@@ -220,8 +230,12 @@ body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic 
       </div>
     </div>
     <div id="isec" class="hidden" style="margin-bottom:20px;">
-      <div class="sh2"><div class="st" style="color:var(--ng);">⚠ 오늘 이상사항</div><div class="ss">N 체크된 항목만 표시됩니다</div></div>
+      <div class="sh2"><div class="st" style="color:var(--ng);">⚠ 오늘 이상사항</div><div class="ss">N 체크된 항목만 표시됩니다 · 관리자에게만 보여요</div></div>
       <div class="ilist" id="ilist"></div>
+    </div>
+    <div id="leadmenu" class="hidden" style="margin-bottom:8px;">
+      <div class="sh2"><div class="st">직무 책임자</div></div>
+      <button class="bmenu" onclick="goLead()">🧩 <span id="leadmenu-txt">직무 공통업무 관리</span></button>
     </div>
     <div id="admenu" class="hidden" style="margin-bottom:8px;">
       <div class="sh2"><div class="st">관리자</div></div>
@@ -257,6 +271,7 @@ body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic 
     </div>
     <div id="cl-tplpanel" class="hidden card" style="margin-bottom:14px;">
       <div class="ctitle">🛠 체크리스트 항목(템플릿) 편집 <span style="font-size:12px;color:var(--t3);font-weight:400;">— 여기서 추가/삭제하면 오늘 체크리스트에도 반영돼요</span></div>
+      <div class="abnr" style="margin-bottom:12px;">📌 <b>공통</b> 표시 항목은 직무 공통업무예요. 관리자 메뉴 → 🧩 직무 탭에서 관리해요.</div>
       <div class="frow"><input class="fi" type="text" id="cltpli" placeholder="항목명 입력" style="flex:1;"><button class="bp" onclick="addClTplItem()">추가</button></div>
       <div class="msg err" id="cltplerr"></div>
       <div id="cltpllist" style="margin-top:12px;"></div>
@@ -275,15 +290,17 @@ body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic 
 <!-- ▶ 관리자 화면 -->
 <div id="sc-admin" class="hidden">
   <div class="topbar">
-    <div class="tl"><img class="logo" src="data:image/png;base64,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" alt="MOMOS COFFEE" style="width:30px;height:30px;background:transparent;object-fit:contain;padding:2px;"><div><div class="ttl">관리자 설정</div><div class="tsub" id="adun">-</div></div></div>
+    <div class="tl"><img class="logo" src="data:image/png;base64,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" alt="MOMOS COFFEE" style="width:30px;height:30px;background:transparent;object-fit:contain;padding:2px;"><div><div class="ttl" id="adttl">관리자 설정</div><div class="tsub" id="adun">-</div></div></div>
     <button class="bsm" onclick="goMain()">← 홈으로</button>
   </div>
   <div class="tabnav">
     <button class="tabbtn on" onclick="swTab('teams')">🏢 체크리스트</button>
     <button class="tabbtn" onclick="swTab('tpl')">📋 템플릿</button>
     <button class="tabbtn" onclick="swTab('users')">👤 사용자</button>
+    <button class="tabbtn" onclick="swTab('roles')">🧩 직무</button>
     <button class="tabbtn" onclick="swTab('monitor')">📊 현황</button>
     <button class="tabbtn" onclick="swTab('missing')">🚨 누락</button>
+    <button class="tabbtn" onclick="swTab('logs')">🗑 로그</button>
   </div>
   <div class="wrap">
     <!-- 팀 탭 -->
@@ -335,14 +352,60 @@ body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic 
       </div>
       <div class="card"><div class="ctitle">진행 현황 <span style="font-size:12px;color:var(--t3);font-weight:400;">— 클릭하면 상세 체크리스트로 이동</span></div><div id="molist"></div></div>
     </div>
+    <!-- 직무 탭 -->
+    <div class="tabp" id="tp-roles">
+      <div class="card">
+        <div class="ctitle" id="rlhead">🧩 직무 관리 <span style="font-size:12px;color:var(--t3);font-weight:400;">— 소속팀 안에서 업무별로 나누고, 직무마다 공통업무를 등록해요</span></div>
+        <div class="adm-only">
+          <div style="font-size:12px;color:var(--t3);font-weight:600;margin-bottom:4px;">소속팀 선택</div>
+          <div class="ttabs" id="rlcattabs"></div>
+          <div class="frow"><input class="fi" type="text" id="rli" placeholder="직무명 (예: 원두포장, 검수, 전산)" style="flex:1;"><button class="bp" onclick="addJobRole()">추가</button></div>
+          <div class="msg err" id="rlerr"></div>
+        </div>
+        <div style="font-size:12px;color:var(--t3);font-weight:600;margin:14px 0 4px;">직무 선택 <span class="adm-only" style="font-weight:400;">— 이 순서대로 관리자 대시보드에 표시돼요 (◀ ▶로 변경)</span></div>
+        <div class="ttabs" id="rltabs"></div>
+      </div>
+      <div id="rl-con" class="hidden">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;">
+            <div class="ctitle" id="rltitle" style="margin-bottom:0;">-</div>
+            <div class="adm-only" style="white-space:nowrap;"><button class="bg" onclick="mvJobRole(-1)" title="앞으로">◀</button> <button class="bg" onclick="mvJobRole(1)" title="뒤로">▶</button> <button class="bg" onclick="renameJobRole()">이름 변경</button> <button class="bd" onclick="delJobRole()">삭제</button></div>
+          </div>
+          <div style="font-size:12px;color:var(--t3);margin-bottom:6px;" id="rlmemhint">👥 이 직무 인원 — 체크하면 배정, ☆를 누르면 ⭐ 책임자 지정 (책임자는 공통업무를 직접 작성할 수 있어요)</div>
+          <div id="rlmembers" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+        </div>
+        <div class="card">
+          <div class="ctitle">📌 공통업무 항목 <span style="font-size:12px;color:var(--t3);font-weight:400;">— 이 직무 인원 전원의 체크리스트 맨 위에 똑같이 들어가요 (체크는 각자)</span></div>
+          <div class="frow"><input class="fi" type="text" id="rti" placeholder="공통업무 항목명" style="flex:1;"><button class="bp" onclick="addRoleTpl()">추가</button></div>
+          <div class="msg err" id="rterr"></div>
+          <div id="rtlist" style="margin-top:12px;"></div>
+        </div>
+      </div>
+    </div>
+    <!-- 로그 탭 -->
+    <div class="tabp" id="tp-logs">
+      <div class="card">
+        <div class="ctitle">🗑 삭제 로그 <span style="font-size:12px;color:var(--t3);font-weight:400;">— 누가 언제 무엇을 삭제했는지 기록돼요 (로그는 삭제할 수 없어요)</span></div>
+        <div class="frow">
+          <div class="sw" style="width:150px;"><select class="fsel" id="lg-type" onchange="renderLogs()"><option value="">전체 구분</option></select></div>
+          <input class="fi" type="text" id="lg-q" placeholder="삭제자·대상 검색" oninput="renderLogs()" style="flex:1;">
+        </div>
+      </div>
+      <div class="card"><div id="lglist"></div></div>
+    </div>
     <!-- 누락 탭 -->
     <div class="tabp" id="tp-missing">
       <div class="card">
         <div class="ctitle">🚨 누락 현황</div>
-        <div class="ss">최근 7일 기준 — 담당자별로 빠지거나 못 채운 날짜를 확인하세요</div>
-        <div class="ttabs" id="admcattabs" style="margin-top:10px;"></div>
+        <div class="ss">최근 7일 · 직원별 출근 요일 기준 — 담당자별로 빠지거나 못 채운 날짜를 확인하세요</div>
+        <div class="ttabs" id="admsubtabs" style="margin-top:12px;">
+          <button class="ttab on" data-k="miss" onclick="selAdSub('miss')">🚨 누락</button>
+          <button class="ttab" data-k="year" onclick="selAdSub('year')">📅 월별 현황</button>
+          <button class="ttab" data-k="done" onclick="selAdSub('done')">✅ 사유 처리</button>
+        </div>
+        <div class="ttabs" id="admcattabs" style="margin-top:4px;"></div>
       </div>
-      <div class="card"><div class="ctitle">담당자별 누락 목록 <span style="font-size:12px;color:var(--t3);font-weight:400;">— 클릭하면 해당 날짜 체크리스트로 이동</span></div><div id="admisslist"></div></div>
+      <div class="card"><div class="ctitle" id="admlisttitle">담당자별 누락 목록 <span style="font-size:12px;color:var(--t3);font-weight:400;">— 날짜를 클릭해 사유 처리 또는 체크리스트 확인</span></div><div id="admisslist"></div></div>
     </div>
   </div>
 </div>
@@ -382,13 +445,256 @@ body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic 
   </div>
 </div>
 
+<!-- 누락 사유 처리 모달 -->
+<div class="modal" id="mx-modal" onclick="if(event.target===this)closeMx()">
+  <div class="mbox">
+    <div class="mhd"><div class="mtl">누락 사유 처리</div><button class="mcl" onclick="closeMx()">✕</button></div>
+    <div style="font-size:14px;font-weight:700;" id="mx-team">-</div>
+    <div style="font-size:13px;color:var(--ng);font-weight:600;margin:2px 0 14px;" id="mx-date">-</div>
+    <button class="bmenu" onclick="mxOpenCL()" style="margin-bottom:16px;">📋 해당 날짜 체크리스트 보기</button>
+    <div class="fg"><label class="fl">사유</label><div class="sw"><select class="fsel" id="mx-type">
+      <option value="연차">연차</option>
+      <option value="반차">반차</option>
+      <option value="휴무">휴무 (대체휴무 등)</option>
+      <option value="교육·출장">교육·출장</option>
+      <option value="기타">기타</option>
+    </select></div></div>
+    <div class="fg"><label class="fl">상세 내용 (선택)</label><input class="fi" type="text" id="mx-memo" placeholder="예: 오후 반차, 공장 휴무일 등"></div>
+    <div class="msg err" id="mx-err" style="margin-bottom:10px;"></div>
+    <button class="bp full" id="mx-btn" onclick="saveMx()">사유 등록 — 정상 처리</button>
+  </div>
+</div>
+
+<!-- 체크리스트 미리보기 팝업 (사유 처리 창 위에 뜸, 닫으면 그대로 복귀) -->
+<div class="modal" id="pv-modal" style="z-index:300;" onclick="if(event.target===this)closePv()">
+  <div class="mbox" style="max-width:560px;max-height:86vh;display:flex;flex-direction:column;padding:22px;">
+    <div class="mhd" style="margin-bottom:10px;">
+      <div><div class="mtl" id="pv-title">체크리스트</div><div style="font-size:12px;color:var(--t3);margin-top:2px;" id="pv-sub">-</div></div>
+      <button class="mcl" onclick="closePv()">✕</button>
+    </div>
+    <div id="pv-body" style="overflow-y:auto;flex:1;min-height:80px;"></div>
+    <button class="bp full" onclick="closePv()" style="margin-top:14px;">닫기</button>
+  </div>
+</div>
+
+<!-- 삭제 확인 (비밀번호) 모달 -->
+<div class="modal" id="dl-modal" style="z-index:400;">
+  <div class="mbox">
+    <div class="mhd"><div class="mtl" style="color:var(--ng);">🗑 삭제 확인</div><button class="mcl" onclick="dlClose(false)">✕</button></div>
+    <div id="dl-msg" style="font-size:14px;line-height:1.6;white-space:pre-line;margin-bottom:16px;"></div>
+    <div class="fg"><label class="fl" id="dl-pwlabel">본인 비밀번호</label><input class="fi" type="password" id="dl-pw" placeholder="비밀번호 입력" autocomplete="current-password"></div>
+    <div class="msg err" id="dl-err" style="margin-bottom:10px;"></div>
+    <div class="frow"><button class="bsm" style="flex:1;padding:11px;" onclick="dlClose(false)">취소</button><button class="bp" id="dl-btn" style="flex:1;background:var(--ng);" onclick="dlConfirm()">삭제</button></div>
+    <div style="font-size:11px;color:var(--t3);text-align:center;margin-top:10px;">삭제 내역은 관리자 로그에 기록됩니다</div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
 const SB_URL='https://flevmhcogrwagyoxcacs.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZsZXZtaGNvZ3J3YWd5b3hjYWNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNDk5ODAsImV4cCI6MjA4NzkyNTk4MH0.eWvh1kjdnG-juv77MMbnmnRSWa22eFP0sZn9r4wHsYg';
 const MC='momos1!';
-const SERVICE_START_DATE='2026-07-13'; // 이 날짜 이전은 누락 표기 안 함
+const SERVICE_START_DATE='2026-11-01'; // 누락 집계 시작일 (이 날짜 이전은 누락 0 — 10월까지 초기화)
+const MISS_DAYS=7; // 누락 조회 기간(일)
+
+// ── 누락 공통 로직 ───────────────────────
+// 날짜 문자열(YYYY-MM-DD) ↔ 로컬 날짜 변환 (toISOString은 UTC 변환이라 시간대에 따라 하루 밀릴 수 있어 사용하지 않음)
+function ymd(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+// 출근 요일 (JS getDay 기준: 0=일 1=월 … 6=토). 지정 안 된 사람은 월~금
+const DEFAULT_WORK_DAYS=[1,2,3,4,5];
+const DOW_LABEL=['일','월','화','수','목','금','토'];
+const DOW_ORDER=[1,2,3,4,5,6,0]; // 화면 표시 순서: 월~일
+function dowOf(ds){ const[y,m,d]=ds.split('-'); return new Date(+y,+m-1,+d).getDay(); }
+function normWorkDays(wd){ return Array.isArray(wd)?wd.map(Number):DEFAULT_WORK_DAYS; }
+// 최근 N일 중 주말·서비스 시작 이전 제외한 평일 목록 (오늘 제외)
+function missDays(){
+  const[y,m,d]=workDate().split('-'); const days=[];
+  for(let i=1;i<=MISS_DAYS;i++){
+    const ds=ymd(new Date(+y,+m-1,+d-i));
+    if(ds>=SERVICE_START_DATE) days.push(ds);
+  }
+  return days;
+}
+// 팀×날짜 누락 계산 (사유 처리된 건은 제외)
+// Supabase는 한 번에 최대 1000행만 주므로 끝까지 나눠서 조회
+async function fetchAll(build){
+  const out=[];
+  for(let off=0;;off+=1000){
+    const{data,error}=await build().range(off,off+999);
+    if(error){ console.error('조회 실패:',error.message); toast('⚠ 조회 실패: '+error.message,4000); break; }
+    out.push(...(data||[]));
+    if(!data||data.length<1000) break;
+  }
+  return out;
+}
+function dateList(from,to){
+  const out=[]; const[y,m,d]=from.split('-');
+  for(let i=0;;i++){ const ds=ymd(new Date(+y,+m-1,+d+i)); if(ds>to) break; out.push(ds); }
+  return out;
+}
+function yesterday(){ const[y,m,d]=workDate().split('-'); return ymd(new Date(+y,+m-1,+d-1)); }
+
+// 기간(from~to) 누락 계산: 출근 요일 · 사용자 등록일 이후 · 사유 처리 반영
+async function calcMissingRange(teams,from,to){
+  if(from<SERVICE_START_DATE) from=SERVICE_START_DATE;
+  if(!teams.length||from>to) return [];
+  const ids=teams.map(t=>t.id);
+  const ownerIds=[...new Set(teams.map(t=>t.owner_user_id).filter(Boolean))];
+  const[cls,exs,ous]=await Promise.all([
+    fetchAll(()=>sb.from('daily_checklists').select('id,team_id,work_date,daily_checklist_items(status)').in('team_id',ids).gte('work_date',from).lte('work_date',to).order('id')),
+    fetchAll(()=>sb.from('daily_missing_excuses').select('id,team_id,work_date').in('team_id',ids).gte('work_date',from).lte('work_date',to).order('id')),
+    ownerIds.length?(async()=>{const{data}=await sb.from('daily_users').select('id,work_days,created_at').in('id',ownerIds);return data||[];})():Promise.resolve([])
+  ]);
+  const has={};
+  cls.forEach(cl=>{
+    const items=cl.daily_checklist_items||[];
+    (has[cl.team_id]=has[cl.team_id]||{})[cl.work_date]={total:items.length,done:items.filter(i=>i.status!=='pending').length};
+  });
+  const exSet=new Set(exs.map(e=>e.team_id+'|'+e.work_date));
+  const um={}; ous.forEach(u=>um[u.id]={wds:normWorkDays(u.work_days),start:u.created_at?ymd(new Date(u.created_at)):from});
+  const days=dateList(from,to);
+  return teams.map(t=>{
+    const u=um[t.owner_user_id];
+    const wds=u?u.wds:DEFAULT_WORK_DAYS;
+    const start=u&&u.start>from?u.start:from;   // 등록 전 날짜는 누락 아님
+    const miss=days.filter(d=>{
+      if(d<start) return false;
+      if(!wds.includes(dowOf(d))) return false;  // 출근일 아님
+      if(exSet.has(t.id+'|'+d)) return false;    // 사유 처리됨
+      const rec=has[t.id]?.[d];
+      return !rec || (rec.total>0 && rec.done<rec.total);
+    });
+    return{id:t.id,name:t.name,owner_user_id:t.owner_user_id,miss};
+  }).filter(x=>x.miss.length);
+}
+// 최근 7일
+async function calcMissing(teams){
+  const days=missDays();
+  if(!days.length) return [];
+  return calcMissingRange(teams,days[days.length-1],days[0]);
+}
+function jsq(v){ return String(v??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+// 누락 날짜 배지 (관리자는 사유 처리 모달, 팀원은 체크리스트로 이동)
+function missBadge(x,d){
+  const[,m,dd]=d.split('-');
+  const fn=CU.role==='admin'?'openMx':'openCL';
+  return `<span class="tbadge bi" style="margin-right:4px;margin-top:4px;display:inline-block;cursor:pointer;" onclick="${fn}('${x.id}','${jsq(x.name)}','${d}','${x.owner_user_id||''}')">${m}/${dd} 누락</span>`;
+}
+
+// ── 누락 사유 처리 모달 ─────────────────
+let MX=null;
+function openMx(teamId,teamName,d,ownerId){
+  MX={teamId,teamName,d,ownerId};
+  $('mx-team').textContent=teamName;
+  $('mx-date').textContent=wdLabel(d)+' 누락';
+  $('mx-type').value='연차'; $('mx-memo').value='';
+  hmsg('mx-err');
+  $('mx-modal').classList.add('on');
+}
+function closeMx(){ $('mx-modal').classList.remove('on'); }
+function mxOpenCL(){ if(!MX) return; openPv(MX.teamId,MX.teamName,MX.d); }
+
+// ── 체크리스트 미리보기 (조회 전용 팝업) ──
+function closePv(){ $('pv-modal').classList.remove('on'); }
+async function openPv(teamId,teamName,d){
+  $('pv-title').textContent=teamName;
+  $('pv-sub').textContent=wdLabel(d)+' 체크리스트 (조회 전용)';
+  const body=$('pv-body');
+  body.innerHTML='<div class="empty"><div class="ei">📋</div>불러오는 중...</div>';
+  $('pv-modal').classList.add('on');
+  const{data:cl,error}=await sb.from('daily_checklists')
+    .select('id,daily_checklist_items(item_name,status,memo,sort_order,role_template_id,checked_by,checked_at)')
+    .eq('team_id',teamId).eq('work_date',d).maybeSingle();
+  if(error){ body.innerHTML='<div class="empty"><div class="ei">⚠️</div>불러오기 실패<br><small>'+error.message+'</small></div>'; return; }
+  const items=(cl?.daily_checklist_items||[]).sort((a,b)=>a.sort_order-b.sort_order);
+  if(!cl||!items.length){
+    body.innerHTML=`<div class="empty"><div class="ei">🔒</div>${cl?'작성된 항목이 없습니다':'이 날짜에는 체크리스트를 아예 열지 않았어요'}</div>`;
+    return;
+  }
+  const cbIds=[...new Set(items.map(i=>i.checked_by).filter(Boolean))];
+  let cm={};
+  if(cbIds.length){const{data:us}=await sb.from('daily_users').select('id,name').in('id',cbIds);(us||[]).forEach(u=>cm[u.id]=u.name);}
+  const done=items.filter(i=>i.status!=='pending').length, issue=items.some(i=>i.status==='N');
+  const pct=Math.round(done/items.length*100);
+  const st={Y:'<span style="color:var(--ok);font-weight:700;">Y</span>',N:'<span style="color:var(--ng);font-weight:700;">N</span>',NA:'<span style="color:var(--t3);">-</span>',pending:'<span style="color:var(--wn);font-weight:600;">미작성</span>'};
+  body.innerHTML=`
+    <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600;margin-bottom:4px;">
+      <span style="color:var(--t2);">진행률</span><span style="color:${issue?'var(--ng)':done===items.length?'var(--ok)':'var(--wn)'};">${done}/${items.length} (${pct}%)</span>
+    </div>
+    <div class="pbar" style="margin:0 0 12px;"><div class="pfill ${issue?'n':done===items.length?'c':''}" style="width:${pct}%"></div></div>
+    <table class="dt" style="font-size:13px;">
+      <thead><tr><th>항목</th><th style="width:56px;text-align:center;">결과</th><th>비고</th></tr></thead>
+      <tbody>${items.map(it=>`<tr style="${it.status==='N'?'background:#fff8f8;':it.status==='pending'?'background:var(--wnl);':''}">
+        <td style="${it.status==='N'?'color:var(--ng);font-weight:600;':''}">${it.role_template_id?COMMON_BADGE:''}${it.item_name}</td>
+        <td style="text-align:center;">${st[it.status]||'-'}</td>
+        <td style="font-size:12px;color:var(--t3);">${it.memo||''}${it.checked_by&&it.status!=='pending'?`<div style="font-size:11px;">${cm[it.checked_by]||''}</div>`:''}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+}
+async function saveMx(){
+  if(!MX) return;
+  hmsg('mx-err');
+  const btn=$('mx-btn'); btn.disabled=true; btn.textContent='저장 중...';
+  const{error}=await sb.from('daily_missing_excuses').upsert({
+    team_id:MX.teamId, work_date:MX.d,
+    reason_type:$('mx-type').value, memo:$('mx-memo').value.trim()||null,
+    created_by:CU.id, created_at:new Date().toISOString()
+  },{onConflict:'team_id,work_date'});
+  btn.disabled=false; btn.textContent='사유 등록 — 정상 처리';
+  if(error) return msg('mx-err','저장 실패: '+error.message);
+  closeMx();
+  toast('✓ 사유 처리 완료');
+  if(!$('sc-admin').classList.contains('hidden')) renderAdMissList();
+  if(!$('sc-hist').classList.contains('hidden')) loadMissing();
+}
+async function delMx(id){
+  const{data:ex}=await sb.from('daily_missing_excuses').select('team_id,work_date,reason_type,memo,daily_teams(name)').eq('id',id).maybeSingle();
+  const tn=ex?.daily_teams?.name||'-';
+  if(!await askDel(`사유 처리를 취소할까요?\n${tn} · ${ex?wdLabel(ex.work_date):''}\n취소하면 다시 누락으로 표시됩니다.`)) return;
+  const{error}=await sb.from('daily_missing_excuses').delete().eq('id',id);
+  if(error) return toast('오류: '+error.message);
+  await delLog('누락 사유',tn,ex?`${ex.work_date} · ${ex.reason_type}${ex.memo?' ('+ex.memo+')':''}`:'');
+  toast('사유 처리 취소됨'); renderAdMissList();
+}
+// ── 삭제 확인(비밀번호) + 삭제 로그 ─────────
+// 로그인 상태: 본인 비밀번호 / 로그인 전(최초 설정 화면): 마스터 코드로 확인
+let DL=null;
+function askDel(message){
+  return new Promise(resolve=>{
+    DL={resolve};
+    $('dl-msg').textContent=message;
+    $('dl-pwlabel').textContent=CU?`본인 비밀번호 (${CU.name})`:'마스터 코드';
+    $('dl-pw').value=''; hmsg('dl-err');
+    $('dl-modal').classList.add('on');
+    setTimeout(()=>$('dl-pw').focus(),50);
+  });
+}
+function dlClose(ok){
+  $('dl-modal').classList.remove('on');
+  if(DL){ const r=DL.resolve; DL=null; r(ok); }
+}
+async function dlConfirm(){
+  const pw=$('dl-pw').value; hmsg('dl-err');
+  if(!pw) return msg('dl-err','비밀번호를 입력해주세요.');
+  const btn=$('dl-btn'); btn.disabled=true;
+  let ok=false;
+  if(CU){
+    const{data:u}=await sb.from('daily_users').select('password').eq('id',CU.id).single();
+    ok=!!u&&u.password===pw;
+  }else ok=pw===MC;
+  btn.disabled=false;
+  if(!ok){ $('dl-pw').value=''; return msg('dl-err',CU?'비밀번호가 올바르지 않습니다.':'마스터 코드가 올바르지 않습니다.'); }
+  dlClose(true);
+}
+async function delLog(type,target,detail){
+  const{error}=await sb.from('daily_delete_logs').insert({
+    actor_id:CU?.id||null, actor_name:CU?.name||'마스터코드(최초설정)',
+    target_type:type, target_name:target, detail:detail||null
+  });
+  if(error){ console.error('삭제 로그 기록 실패:',error.message); toast('⚠ 삭제는 됐지만 로그 기록 실패: '+error.message,4000); }
+}
+
 const {createClient}=supabase;
 const sb=createClient(SB_URL,SB_KEY);
 
@@ -543,13 +849,22 @@ async function loadAuList(){
   </tbody></table>`;
 }
 
-async function delAuUser(id,name){
-  if(!confirm(`"${name}"을(를) 삭제하시겠습니까?\n⚠ 해당 사용자의 체크리스트와 템플릿도 모두 삭제됩니다.`)) return;
-  const{data:owned}=await sb.from('daily_teams').select('id').eq('owner_user_id',id);
-  if(owned&&owned.length) await sb.from('daily_teams').delete().in('id',owned.map(t=>t.id));
-  await sb.from('daily_users').delete().eq('id',id);
+// 사용자 삭제 공통: 본인 체크리스트(+템플릿·기록) 함께 삭제 후 로그
+async function deleteUserCore(id,name){
+  if(!await askDel(`"${name}"을(를) 삭제하시겠습니까?\n⚠ 해당 사용자의 체크리스트와 템플릿, 기록도 모두 삭제됩니다.`)) return false;
+  const{data:owned}=await sb.from('daily_teams').select('id,name').eq('owner_user_id',id);
+  if(owned&&owned.length){
+    const{error:e1}=await sb.from('daily_teams').delete().in('id',owned.map(t=>t.id));
+    if(e1){ toast('오류: '+e1.message); return false; }
+  }
+  const{error}=await sb.from('daily_users').delete().eq('id',id);
+  if(error){ toast('오류: '+error.message); return false; }
+  await delLog('사용자',name,owned&&owned.length?`체크리스트 함께 삭제: ${owned.map(t=>t.name).join(', ')}`:'');
   toast(`"${name}" 삭제 완료`);
-  await loadAuList();
+  return true;
+}
+async function delAuUser(id,name){
+  if(await deleteUserCore(id,name)) await loadAuList();
 }
 
 function doLogout(){
@@ -587,12 +902,15 @@ async function initMain(){
   const wd=workDate();
   $('wdb').textContent=wdLabel(wd);
   $('und').textContent=CU.name;
-  $('urd').textContent=CU.is_master?'마스터':CU.role==='admin'?'관리자':'팀원';
+  await loadMyLeadRoles();
+  $('urd').textContent=CU.is_master?'마스터':CU.role==='admin'?'관리자':CU.leadRoleIds.length?'직무 책임자':'팀원';
   $('admenu').classList.toggle('hidden', CU.role!=='admin');
+  // 관리자는 관리자 메뉴에서 전부 관리하므로 책임자 메뉴는 팀원 책임자에게만
+  $('leadmenu').classList.toggle('hidden', CU.role==='admin' || !CU.leadRoleIds.length);
   $('isec').classList.add('hidden');
   show('sc-main');
   await loadTeams(wd);
-  await loadIssues(wd);
+  if(CU.role==='admin') await loadIssues(wd);
 }
 
 // ── 팀 목록 ──────────────────────────────
@@ -647,25 +965,57 @@ async function loadTeams(wd){
     html+=`<div class="sh2" style="margin-top:0;margin-bottom:10px;"><div class="st" style="font-size:15px;">🙋 내 체크리스트</div></div><div class="tgrid">${mine.map(cardHtml).join('')}</div>`;
   }
 
-  // 카테고리별 그룹핑 (이름 앞 [대괄호] 기준, sort_order 순서 유지)
+  // 소속팀별 그룹 (소속팀 관리에서 정한 순서 → 그 외는 체크리스트 순서)
+  const isAdmin=CU.role==='admin';
+  const[{data:cats},ownerRoles]=await Promise.all([
+    sb.from('daily_team_categories').select('name,sort_order').order('sort_order'),
+    (async()=>{
+      if(!isAdmin) return {};
+      await loadJobRoles();
+      const oids=[...new Set(others.map(t=>t.owner_user_id).filter(Boolean))];
+      if(!oids.length) return {};
+      const{data:us}=await sb.from('daily_users').select('id,job_role_id').in('id',oids);
+      const m={}; (us||[]).forEach(u=>m[u.id]=u.job_role_id); return m;
+    })()
+  ]);
+  const catOrder={}; (cats||[]).forEach((c,i)=>catOrder[c.name]=i);
   const groups=[]; const gi={};
-  others.forEach(t=>{
+  others.forEach((t,i)=>{
     const cat=extractCat(t.name);
-    if(!(cat in gi)){ gi[cat]=groups.length; groups.push({cat,items:[]}); }
+    if(!(cat in gi)){ gi[cat]=groups.length; groups.push({cat,items:[],first:i}); }
     groups[gi[cat]].items.push(t);
   });
+  groups.sort((a,b)=>((catOrder[a.cat]??999)-(catOrder[b.cat]??999))||(a.first-b.first));
+
+  // 관리자: 소속팀 안에서 직무별로 한 번 더 나눔 (직무 탭에서 정한 순서, 미지정은 맨 뒤)
+  const roleBlocks=g=>{
+    if(!isAdmin) return `<div class="tgrid">${g.items.map(cardHtml).join('')}</div>`;
+    const rs=jobRoles.filter(r=>r.category_name===g.cat);
+    const blocks=rs.map(r=>({r,items:g.items.filter(t=>ownerRoles[t.owner_user_id]===r.id)})).filter(b=>b.items.length);
+    const rest=g.items.filter(t=>!blocks.some(b=>b.items.includes(t)));
+    if(!blocks.length) return `<div class="tgrid">${g.items.map(cardHtml).join('')}</div>`;
+    if(rest.length) blocks.push({r:null,items:rest});
+    return blocks.map(b=>`
+      <div style="display:flex;align-items:center;gap:6px;margin:4px 0 8px;">
+        <span class="tbadge" style="margin:0;font-size:12px;padding:3px 10px;${b.r?'background:var(--acl);color:var(--ac);border:1px solid var(--acb);':'background:var(--bg);color:var(--t3);border:1px solid var(--bdr);'}">${b.r?'🧩 '+b.r.name:'직무 미지정'}</span>
+        <span style="font-size:12px;color:var(--t3);">${b.items.length}명</span>
+      </div>
+      <div class="tgrid" style="margin-bottom:14px;">${b.items.map(cardHtml).join('')}</div>`).join('');
+  };
   html+=groups.map((g,idx)=>`
     <div class="sh2" style="margin-top:${(idx===0&&!mine.length)?'0':'22px'};margin-bottom:10px;"><div class="st" style="font-size:15px;">${CATEMOJI[g.cat]||'🏢'} ${g.cat}</div></div>
-    <div class="tgrid">${g.items.map(cardHtml).join('')}</div>
+    ${roleBlocks(g)}
   `).join('');
   grid.innerHTML=html;
 }
 
 async function loadIssues(wd){
+  if(CU.role!=='admin'||!allTeams.length) return;
   const{data:issues}=await sb.from('daily_checklist_items')
-    .select('item_name,memo,checked_by,daily_checklists!inner(work_date,daily_teams(name))')
+    .select('item_name,memo,checked_by,daily_checklists!inner(work_date,team_id,daily_teams(name))')
     .eq('status','N').eq('daily_checklists.work_date',wd)
-    .order('checked_at',{ascending:false}).limit(10);
+    .in('daily_checklists.team_id',allTeams.map(t=>t.id))
+    .order('checked_at',{ascending:false}).limit(20);
   if(!issues||!issues.length) return;
   const ids=[...new Set(issues.map(i=>i.checked_by).filter(Boolean))];
   let cm={};
@@ -729,21 +1079,32 @@ async function openCL(teamId, teamName, wd, ownerId){
   // 3) 기존 항목 조회 (전체, 정렬은 나중에)
   const{data:exist}=await sb.from('daily_checklist_items').select('*').eq('checklist_id',clId);
 
-  // 4) 활성 템플릿 조회 (항상 최신 기준)
+  // 4) 활성 템플릿 조회 (항상 최신 기준): 직무 공통업무(맨 위) + 개인 템플릿
   const{data:tpls}=await sb.from('daily_templates').select('*').eq('team_id',teamId).eq('is_active',true).order('sort_order');
+  const rts=await getOwnerRoleTpls(clOwnerId);
 
   // 5) 템플릿 기준으로 완전 동기화: 이름/순서 변경 반영, 누락 항목 추가, 비활성/삭제된 미체크 항목 정리
-  const existByTpl={};
-  (exist||[]).forEach(i=>{ if(i.template_item_id) existByTpl[i.template_item_id]=i; });
+  const existByTpl={}, existByRt={};
+  (exist||[]).forEach(i=>{
+    if(i.template_item_id) existByTpl[i.template_item_id]=i;
+    if(i.role_template_id) existByRt[i.role_template_id]=i;
+  });
+  const merged=[
+    ...rts.map(t=>({src:'rt',t})),
+    ...(tpls||[]).map(t=>({src:'tp',t}))
+  ];
 
   const toInsert=[], toUpdate=[], keepIds=new Set();
-  (tpls||[]).forEach((t,idx)=>{
-    const ex=existByTpl[t.id];
+  merged.forEach(({src,t},idx)=>{
+    const ex=src==='rt'?existByRt[t.id]:existByTpl[t.id];
     if(ex){
       keepIds.add(ex.id);
       if(ex.item_name!==t.item_name || ex.sort_order!==idx) toUpdate.push({id:ex.id,item_name:t.item_name,sort_order:idx});
     }else{
-      toInsert.push({checklist_id:clId,template_item_id:t.id,item_name:t.item_name,status:'pending',sort_order:idx});
+      toInsert.push({checklist_id:clId,
+        template_item_id:src==='tp'?t.id:null,
+        role_template_id:src==='rt'?t.id:null,
+        item_name:t.item_name,status:'pending',sort_order:idx});
     }
   });
   // 템플릿에서 사라졌지만(비활성화/삭제) 아직 체크 안 한 항목만 정리 (이미 체크된 기록은 보존)
@@ -786,7 +1147,7 @@ function renderCL(){
   const dis=clIsPast;
   wrap.innerHTML=clItems.map((it,idx)=>`
     <div class="citem ${it.status!=='pending'?'s'+it.status:''}" id="ci-${it.id}">
-      <div class="iname">${idx+1}. ${it.item_name}</div>
+      <div class="iname">${idx+1}. ${it.role_template_id?COMMON_BADGE:''}${it.item_name}</div>
       <div class="sbtns">
         <button class="sbtn ${it.status==='Y'?'Y':''}" ${dis?'disabled':''} onclick="setSt('${it.id}','Y')">✓ 정상 (Y)</button>
         <button class="sbtn ${it.status==='N'?'N':''}" ${dis?'disabled':''} onclick="setSt('${it.id}','N')">✗ 이상 (N)</button>
@@ -915,8 +1276,10 @@ async function addClTplItem(){
 }
 
 async function delClTpl(id,name){
-  if(!confirm(`"${name}" 항목을 삭제하시겠습니까?`)) return;
-  await sb.from('daily_templates').delete().eq('id',id);
+  if(!await askDel(`"${name}" 항목을 삭제하시겠습니까?`)) return;
+  const{error}=await sb.from('daily_templates').delete().eq('id',id);
+  if(error) return toast('오류: '+error.message);
+  await delLog('체크리스트 항목',name,$('cl-tn').textContent);
   toast(`"${name}" 삭제 완료`); await refreshClAfterTplChange();
 }
 
@@ -937,11 +1300,42 @@ async function mvClTpl(id,dir){
 
 // ── 내비 함수 ────────────────────────────
 function goMain(){ initMain(); }
+// ── 관리자 / 직무 책임자 모드 ──
+let LEAD_MODE=false;
+const TAB_KEYS=['teams','tpl','users','roles','monitor','missing','logs'];
+async function loadMyLeadRoles(){
+  const{data,error}=await sb.from('daily_role_leaders').select('role_id').eq('user_id',CU.id);
+  if(error) console.error('책임자 조회 실패:',error.message);
+  CU.leadRoleIds=(data||[]).map(r=>r.role_id);
+}
+function canEditRole(roleId){ return CU.role==='admin' || (CU.leadRoleIds||[]).includes(roleId); }
+function setAdminMode(lead){
+  LEAD_MODE=lead;
+  document.querySelectorAll('.tabbtn').forEach((b,i)=>b.style.display=(!lead||TAB_KEYS[i]==='roles')?'':'none');
+  document.querySelectorAll('.adm-only').forEach(e=>e.style.display=lead?'none':'');
+  $('adttl').textContent=lead?'직무 공통업무 관리':'관리자 설정';
+  $('rlhead').innerHTML=lead
+    ? '🧩 내가 책임자인 직무 <span style="font-size:12px;color:var(--t3);font-weight:400;">— 공통업무를 작성하면 직무 인원 전원의 체크리스트에 똑같이 들어가요</span>'
+    : '🧩 직무 관리 <span style="font-size:12px;color:var(--t3);font-weight:400;">— 소속팀 안에서 업무별로 나누고, 직무마다 공통업무를 등록해요</span>';
+  $('rlmemhint').textContent=lead
+    ? '👥 이 직무 인원 (⭐ 책임자)'
+    : '👥 이 직무 인원 — 체크하면 배정, ☆를 누르면 ⭐ 책임자 지정 (책임자는 공통업무를 직접 작성할 수 있어요)';
+}
 function goAdmin(){
   if(CU.role!=='admin'){ toast('관리자만 접근할 수 있습니다.'); return; }
+  setAdminMode(false);
   show('sc-admin');
   $('adun').textContent=CU.name;
-  loadAdTeams();
+  swTab('teams');
+}
+async function goLead(){
+  await loadMyLeadRoles();
+  if(!CU.leadRoleIds.length){ toast('책임자로 지정된 직무가 없습니다.'); return initMain(); }
+  setAdminMode(true);
+  show('sc-admin');
+  $('adun').textContent=CU.name+' · 직무 책임자';
+  selRoleId=null;
+  swTab('roles');
 }
 async function goHistory(){
   show('sc-hist');
@@ -959,44 +1353,26 @@ async function loadMissing(){
   relevant=relevant.filter(t=>t.owner_user_id===CU.id || vc.includes(extractCat(t.name)));
   if(!relevant.length){ el.innerHTML=''; return; }
 
-  const{data:tpls0}=await sb.from('daily_templates').select('team_id').in('team_id',relevant.map(t=>t.id)).eq('is_active',true);
-  const tplTeamIds0=new Set((tpls0||[]).map(t=>t.team_id));
+  const tplTeamIds0=await teamsWithItems(relevant);
   relevant=relevant.filter(t=>tplTeamIds0.has(t.id));
   if(!relevant.length){ el.innerHTML=''; return; }
 
-  const days=[]; const base=new Date(workDate()+'T12:00:00');
-  for(let i=1;i<=7;i++){ const d=new Date(base); d.setDate(d.getDate()-i); const ds=d.toISOString().split('T')[0]; if(ds>=SERVICE_START_DATE) days.push(ds); }
-  if(!days.length){ el.innerHTML=''; return; }
-
-  const{data:cls}=await sb.from('daily_checklists').select('team_id,work_date,daily_checklist_items(status)').in('team_id',relevant.map(t=>t.id)).in('work_date',days);
-  const has={};
-  (cls||[]).forEach(cl=>{
-    has[cl.team_id]=has[cl.team_id]||{};
-    const items=cl.daily_checklist_items||[];
-    has[cl.team_id][cl.work_date]={total:items.length,done:items.filter(i=>i.status!=='pending').length};
-  });
-
-  const missingByTeam=relevant.map(t=>{
-    const miss=days.filter(d=>{
-      const rec=has[t.id]?.[d];
-      return !rec || (rec.total>0 && rec.done<rec.total);
-    }).sort();
-    return{id:t.id,name:t.name,owner_user_id:t.owner_user_id,miss};
-  }).filter(x=>x.miss.length);
-
+  const missingByTeam=await calcMissing(relevant);
   if(!missingByTeam.length){
-    el.innerHTML='<div class="card" style="margin-bottom:14px;"><div style="font-size:13px;color:var(--ok);">✓ 최근 7일 누락된 체크리스트가 없습니다</div></div>';
+    el.innerHTML='<div class="card" style="margin-bottom:14px;"><div style="font-size:13px;color:var(--ok);">✓ 최근 7일 누락된 체크리스트가 없습니다 (출근일 기준)</div></div>';
     return;
   }
+  const guide=CU.role==='admin'?'날짜를 클릭해 사유 처리 또는 체크리스트 확인':'클릭하면 해당 날짜 체크리스트로 이동';
   el.innerHTML=`<div class="card" style="margin-bottom:14px;">
-    <div class="ctitle" style="color:var(--ng);">⚠ 최근 7일 누락 현황 <span style="font-size:12px;color:var(--t3);font-weight:400;">— 클릭하면 해당 날짜 체크리스트로 이동</span></div>
-    ${missingByTeam.map(x=>`<div style="font-size:13px;margin-top:8px;"><strong>${x.name}</strong><br>${x.miss.map(d=>{const[,m,dd]=d.split('-');return `<span class="tbadge bi" style="margin-right:4px;margin-top:4px;display:inline-block;cursor:pointer;" onclick="openCL('${x.id}','${x.name}','${d}','${x.owner_user_id||''}')">${m}/${dd} 누락</span>`;}).join('')}</div>`).join('')}
+    <div class="ctitle" style="color:var(--ng);">⚠ 최근 7일 누락 현황 <span style="font-size:12px;color:var(--t3);font-weight:400;">— ${guide}</span></div>
+    ${missingByTeam.map(x=>`<div style="font-size:13px;margin-top:8px;"><strong>${x.name}</strong><br>${x.miss.map(d=>missBadge(x,d)).join('')}</div>`).join('')}
   </div>`;
 }
 
 // ── 관리자 탭 ────────────────────────────
 function swTab(name){
-  document.querySelectorAll('.tabbtn').forEach((b,i)=>b.classList.toggle('on',['teams','tpl','users','monitor','missing'][i]===name));
+  if(LEAD_MODE&&name!=='roles') return; // 책임자는 직무 탭만
+  document.querySelectorAll('.tabbtn').forEach((b,i)=>b.classList.toggle('on',TAB_KEYS[i]===name));
   document.querySelectorAll('.tabp').forEach(p=>p.classList.remove('on'));
   $('tp-'+name).classList.add('on');
   if(name==='teams') loadAdTeams();
@@ -1004,6 +1380,8 @@ function swTab(name){
   if(name==='users') loadTeamCats().then(loadAdUsers);
   if(name==='monitor') loadMonitor();
   if(name==='missing') loadAdMissing();
+  if(name==='roles') loadRolesTab();
+  if(name==='logs') loadLogs();
 }
 
 // 팀 관리
@@ -1045,8 +1423,10 @@ async function addTeam(){
 }
 
 async function delTeam(id,name){
-  if(!confirm(`"${name}" 팀을 삭제하시겠습니까?\n⚠ 해당 팀의 템플릿과 체크리스트도 모두 삭제됩니다.`)) return;
-  await sb.from('daily_teams').delete().eq('id',id);
+  if(!await askDel(`"${name}" 팀을 삭제하시겠습니까?\n⚠ 해당 팀의 템플릿과 체크리스트도 모두 삭제됩니다.`)) return;
+  const{error}=await sb.from('daily_teams').delete().eq('id',id);
+  if(error) return toast('오류: '+error.message);
+  await delLog('체크리스트',name,'템플릿·기록 포함 삭제');
   toast(`"${name}" 삭제 완료`); await loadAdTeams();
 }
 
@@ -1138,8 +1518,10 @@ async function addTplItem(){
 }
 
 async function delTpl(id,name){
-  if(!confirm(`"${name}" 항목을 삭제하시겠습니까?`)) return;
-  await sb.from('daily_templates').delete().eq('id',id);
+  if(!await askDel(`"${name}" 항목을 삭제하시겠습니까?`)) return;
+  const{error}=await sb.from('daily_templates').delete().eq('id',id);
+  if(error) return toast('오류: '+error.message);
+  await delLog('체크리스트 항목',name,($('tpllabel').textContent||'').replace(/^— /,''));
   toast(`"${name}" 삭제 완료`); await loadTplItems();
 }
 
@@ -1180,19 +1562,31 @@ function populateTeamCatSelect(selId){
 function renderTeamCatList(){
   const el=$('tclist'); if(!el) return;
   if(!teamCategories.length){el.innerHTML='<div class="empty"><div class="ei">🏷</div>등록된 팀이 없습니다</div>';return;}
-  el.innerHTML=`<table class="dt"><thead><tr><th style="width:32px;">#</th><th>팀명</th><th style="width:130px;text-align:right;">관리</th></tr></thead><tbody>
+  el.innerHTML=`<table class="dt"><thead><tr><th style="width:32px;">#</th><th>팀명</th><th style="width:80px;text-align:center;">순서</th><th style="width:130px;text-align:right;">관리</th></tr></thead><tbody>
   ${teamCategories.map((c,i)=>{
     if(editingCatId===c.id){
       return `<tr><td style="color:var(--t3);">${i+1}</td>
       <td><input class="fi" type="text" id="etc-${c.id}" value="${c.name.replace(/"/g,'&quot;')}" style="padding:6px 8px;font-size:13px;"></td>
+      <td></td>
       <td style="text-align:right;white-space:nowrap;"><button class="bg" onclick="saveEditTeamCat('${c.id}','${c.name.replace(/'/g,"\\'")}')">저장</button> <button class="bg" onclick="cancelEditTeamCat()">취소</button></td></tr>`;
     }
     return `<tr><td style="color:var(--t3);">${i+1}</td>
     <td><strong>${c.name}</strong></td>
+    <td style="text-align:center;white-space:nowrap;"><button class="bg" onclick="mvTeamCat('${c.id}',-1)" ${i===0?'disabled':''}>↑</button> <button class="bg" onclick="mvTeamCat('${c.id}',1)" ${i===teamCategories.length-1?'disabled':''}>↓</button></td>
     <td style="text-align:right;white-space:nowrap;"><button class="bg" onclick="startEditTeamCat('${c.id}')">수정</button> <button class="bd" onclick="delTeamCat('${c.id}','${c.name.replace(/'/g,"\\'")}')">삭제</button></td></tr>`;
   }).join('')}</tbody></table>`;
 }
 
+// 소속팀 순서 변경 (대시보드·직무 탭 표시 순서에 반영) — 0..n-1로 재정렬해 중복/빈 번호까지 정리
+async function mvTeamCat(id,dir){
+  const arr=[...teamCategories];
+  const idx=arr.findIndex(c=>c.id===id), si=idx+dir;
+  if(si<0||si>=arr.length) return;
+  [arr[idx],arr[si]]=[arr[si],arr[idx]];
+  const res=await Promise.all(arr.map((c,i)=>c.sort_order===i?null:sb.from('daily_team_categories').update({sort_order:i}).eq('id',c.id)));
+  const err=res.find(r=>r&&r.error); if(err) return toast('오류: '+err.error.message);
+  await loadTeamCats();
+}
 function startEditTeamCat(id){ editingCatId=id; renderTeamCatList(); }
 function cancelEditTeamCat(){ editingCatId=null; renderTeamCatList(); }
 
@@ -1221,6 +1615,9 @@ async function saveEditTeamCat(id,oldName){
   }
   // 연쇄 반영 1: 이 카테고리로 지정된 사용자
   await sb.from('daily_users').update({team_category:newName}).eq('team_category',oldName);
+  // 연쇄 반영 1-2: 이 소속팀에 속한 직무
+  await sb.from('daily_job_roles').update({category_name:newName}).eq('category_name',oldName);
+  if(rlCat===oldName) rlCat=newName;
   // 연쇄 반영 2: [oldName] 접두어로 시작하는 체크리스트명
   const{data:affected}=await sb.from('daily_teams').select('id,name').like('name',`[${oldName}]%`);
   for(const t of (affected||[])){
@@ -1237,15 +1634,45 @@ async function delTeamCat(id,name){
   const{count:uc}=await sb.from('daily_users').select('id',{count:'exact',head:true}).eq('team_category',name);
   const{count:tc}=await sb.from('daily_teams').select('id',{count:'exact',head:true}).like('name',`[${name}]%`);
   const warn=(uc||tc)?`\n⚠ 연결된 사용자 ${uc||0}명, 체크리스트 ${tc||0}건은 삭제되지 않고 그대로 남습니다 (소속팀만 미지정 상태가 됩니다).`:'';
-  if(!confirm(`"${name}"을(를) 삭제하시겠습니까?${warn}`)) return;
+  if(!await askDel(`"${name}"을(를) 삭제하시겠습니까?${warn}`)) return;
   const{error}=await sb.from('daily_team_categories').delete().eq('id',id);
   if(error) return toast('오류: '+error.message);
+  await delLog('소속팀',name,(uc||tc)?`연결 사용자 ${uc||0}명·체크리스트 ${tc||0}건은 유지`:'');
   toast(`"${name}" 삭제 완료`);
   await loadTeamCats();
   await loadAdUsers();
 }
 
+function roleSelHtml(u){
+  const rs=jobRoles.filter(r=>r.category_name===u.team_category);
+  if(!u.team_category||!rs.length) return '';
+  return `<select onchange="setUserRole('${u.id}',this.value)" style="margin-top:4px;padding:4px 8px;border:1px solid var(--acb);border-radius:6px;font-size:12px;background:var(--acl);color:var(--ac);font-family:inherit;cursor:pointer;display:block;">
+    <option value="" ${!u.job_role_id?'selected':''}>직무 없음</option>
+    ${rs.map(r=>`<option value="${r.id}" ${u.job_role_id===r.id?'selected':''}>🧩 ${r.name}</option>`).join('')}
+  </select>`;
+}
+async function setUserRole(userId,roleId){
+  const{error}=await sb.from('daily_users').update({job_role_id:roleId||null}).eq('id',userId);
+  if(error) return toast('오류: '+error.message);
+  toast(roleId?'✓ 직무 배정 완료 (오늘 체크리스트 열 때 공통업무 반영)':'직무 해제 완료');
+}
+
+let adUsersMap={};
+async function toggleWorkDay(userId,d){
+  const u=adUsersMap[userId]; if(!u) return;
+  const cur=normWorkDays(u.work_days);
+  const next=cur.includes(d)?cur.filter(x=>x!==d):[...cur,d];
+  if(!next.length) return toast('출근 요일은 최소 하루 이상 지정해야 합니다.');
+  next.sort((a,b)=>DOW_ORDER.indexOf(a)-DOW_ORDER.indexOf(b));
+  const{error}=await sb.from('daily_users').update({work_days:next}).eq('id',userId);
+  if(error) return toast('오류: '+error.message);
+  u.work_days=next;
+  toast(`✓ ${u.name} 출근 요일: ${next.map(x=>DOW_LABEL[x]).join('·')}`);
+  loadAdUsers();
+}
+
 async function loadAdUsers(){
+  await loadJobRoles();
   const{data:users}=await sb.from('daily_users').select('*').order('created_at');
   const el=$('ulist');
   if(!users||!users.length){el.innerHTML='<div class="empty"><div class="ei">👤</div>등록된 사용자가 없습니다</div>';return;}
@@ -1254,6 +1681,16 @@ async function loadAdUsers(){
   const vcMap={};
   (vcRows||[]).forEach(r=>{ (vcMap[r.user_id]=vcMap[r.user_id]||new Set()).add(r.category_name); });
 
+  adUsersMap={}; users.forEach(u=>adUsersMap[u.id]=u);
+  const wdRowHtml=u=>{
+    const wds=normWorkDays(u.work_days);
+    return `<tr><td></td><td colspan="4" style="padding-top:0;padding-bottom:12px;border-bottom:${u.role==='admin'?'none':'1px solid var(--bdr)'};">
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+        <span style="font-size:11px;color:var(--t3);margin-right:4px;">출근 요일</span>
+        ${DOW_ORDER.map(d=>{const on=wds.includes(d);return `<button onclick="toggleWorkDay('${u.id}',${d})" style="width:28px;height:26px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid ${on?'var(--ac)':'var(--bdr)'};background:${on?'var(--ac)':'transparent'};color:${on?'#fff':(d===0||d===6)?'var(--ng)':'var(--t3)'};">${DOW_LABEL[d]}</button>`;}).join('')}
+      </div>
+    </td></tr>`;
+  };
   const vcRowHtml=u=>{
     const set=vcMap[u.id]||new Set();
     return `<tr><td></td><td colspan="4" style="padding-top:0;padding-bottom:12px;">
@@ -1273,7 +1710,7 @@ async function loadAdUsers(){
       <td><strong>${u.name}</strong></td>
       <td><span class="badge ba">👑 마스터</span></td>
       <td style="color:var(--t3);font-size:12px;">-</td>
-      <td style="text-align:right;color:var(--t3);font-size:12px;">-</td></tr>${vcRowHtml(u)}`;
+      <td style="text-align:right;color:var(--t3);font-size:12px;">-</td></tr>${wdRowHtml(u)}${vcRowHtml(u)}`;
     }
     return `<tr><td style="color:var(--t3);">${i+1}</td>
     <td><strong>${u.name}</strong></td>
@@ -1284,8 +1721,8 @@ async function loadAdUsers(){
     <td><select onchange="chTeamCat('${u.id}','${un}',this.value)" style="padding:4px 8px;border:1px solid var(--bdr);border-radius:6px;font-size:12px;background:var(--sur);font-family:inherit;cursor:pointer;">
       <option value="" ${!u.team_category?'selected':''}>선택 안함</option>
       ${teamCategories.map(c=>`<option value="${c.name}" ${u.team_category===c.name?'selected':''}>${c.name}</option>`).join('')}
-    </select></td>
-    <td style="text-align:right;"><button class="bd" onclick="adDelU('${u.id}','${u.name}')">삭제</button></td></tr>${u.role==='admin'?vcRowHtml(u):''}`;
+    </select>${roleSelHtml(u)}</td>
+    <td style="text-align:right;"><button class="bd" onclick="adDelU('${u.id}','${u.name}')">삭제</button></td></tr>${wdRowHtml(u)}${u.role==='admin'?vcRowHtml(u):''}`;
   };
 
   const groups=[]; const gi={};
@@ -1297,7 +1734,7 @@ async function loadAdUsers(){
 
   el.innerHTML=groups.map((g,gidx)=>`
     <div class="sh2" style="margin-top:${gidx===0?'0':'20px'};margin-bottom:8px;"><div class="st" style="font-size:14px;">${CATEMOJI[g.cat]||'👤'} ${g.cat}</div><div class="ss">${g.items.length}명</div></div>
-    <table class="dt"><thead><tr><th style="width:32px;">#</th><th>이름</th><th style="width:100px;">권한</th><th style="width:130px;">소속팀</th><th style="width:60px;text-align:right;">관리</th></tr></thead><tbody>
+    <table class="dt"><thead><tr><th style="width:32px;">#</th><th>이름</th><th style="width:100px;">권한</th><th style="width:150px;">소속팀 / 직무</th><th style="width:60px;text-align:right;">관리</th></tr></thead><tbody>
     ${g.items.map((u,i)=>rowHtml(u,i)).join('')}
     </tbody></table>
   `).join('');
@@ -1325,7 +1762,7 @@ async function toggleViewCat(userId,catName,checked){
 async function chTeamCat(userId,userName,newCat){
   const{data:owned}=await sb.from('daily_teams').select('id,name').eq('owner_user_id',userId).maybeSingle();
   if(!newCat){
-    await sb.from('daily_users').update({team_category:null}).eq('id',userId);
+    await sb.from('daily_users').update({team_category:null,job_role_id:null}).eq('id',userId);
     toast('소속팀 해제 완료 (기존 연결된 체크리스트는 그대로 유지됩니다)');
     return loadAdUsers();
   }
@@ -1348,7 +1785,10 @@ async function chTeamCat(userId,userName,newCat){
     await createOwnedChecklist(userId,userName,newCat);
     toast(`✓ "${target}" 체크리스트를 새로 만들었습니다`);
   }
-  await sb.from('daily_users').update({team_category:newCat}).eq('id',userId);
+  // 직무는 소속팀에 묶여 있으므로, 다른 팀 직무면 해제
+  const{data:cu}=await sb.from('daily_users').select('job_role_id').eq('id',userId).single();
+  const keepRole=cu?.job_role_id && jobRoles.find(r=>r.id===cu.job_role_id)?.category_name===newCat;
+  await sb.from('daily_users').update(keepRole?{team_category:newCat}:{team_category:newCat,job_role_id:null}).eq('id',userId);
   await loadAdUsers();
 }
 
@@ -1376,11 +1816,7 @@ async function chRole(id,role){
 
 async function adDelU(id,name){
   if(id===CU.id) return toast('자기 자신은 삭제할 수 없습니다.');
-  if(!confirm(`"${name}"을(를) 삭제하시겠습니까?\n⚠ 해당 사용자의 체크리스트와 템플릿도 모두 삭제됩니다.`)) return;
-  const{data:owned}=await sb.from('daily_teams').select('id').eq('owner_user_id',id);
-  if(owned&&owned.length) await sb.from('daily_teams').delete().in('id',owned.map(t=>t.id));
-  await sb.from('daily_users').delete().eq('id',id);
-  toast(`"${name}" 삭제 완료`); await loadAdUsers();
+  if(await deleteUserCore(id,name)) await loadAdUsers();
 }
 
 // ── 체크리스트 현황(모니터링) ────────────────
@@ -1441,55 +1877,305 @@ async function renderMoList(){
   `).join('');
 }
 
+// ── 직무 / 공통업무 ─────────────────────
+const COMMON_BADGE='<span class="tbadge" style="background:var(--acl);color:var(--ac);border:1px solid var(--acb);margin:0 6px 0 0;vertical-align:1px;">공통</span>';
+let jobRoles=[], rlCat=null, selRoleId=null, editingRtId=null;
+
+async function loadJobRoles(){
+  const{data,error}=await sb.from('daily_job_roles').select('*').order('sort_order').order('created_at');
+  if(error){ console.error('직무 조회 실패:',error.message); jobRoles=[]; return; }
+  jobRoles=data||[];
+}
+
+// 체크리스트 주인의 직무 공통업무 (활성만, 순서대로)
+async function getOwnerRoleTpls(ownerId){
+  if(!ownerId) return [];
+  const{data:u}=await sb.from('daily_users').select('job_role_id').eq('id',ownerId).maybeSingle();
+  if(!u?.job_role_id) return [];
+  const{data:rts}=await sb.from('daily_role_templates').select('*').eq('role_id',u.job_role_id).eq('is_active',true).order('sort_order');
+  return rts||[];
+}
+
+// 개인 템플릿 또는 직무 공통업무가 하나라도 있는 체크리스트 id 집합 (누락 계산 대상)
+async function teamsWithItems(teams){
+  const ids=teams.map(t=>t.id);
+  const set=new Set();
+  if(!ids.length) return set;
+  const{data:tp}=await sb.from('daily_templates').select('team_id').in('team_id',ids).eq('is_active',true);
+  (tp||[]).forEach(t=>set.add(t.team_id));
+  const ownerIds=[...new Set(teams.map(t=>t.owner_user_id).filter(Boolean))];
+  if(ownerIds.length){
+    const{data:us}=await sb.from('daily_users').select('id,job_role_id').in('id',ownerIds).not('job_role_id','is',null);
+    const roleIds=[...new Set((us||[]).map(u=>u.job_role_id))];
+    if(roleIds.length){
+      const{data:rts}=await sb.from('daily_role_templates').select('role_id').in('role_id',roleIds).eq('is_active',true);
+      const activeRoles=new Set((rts||[]).map(r=>r.role_id));
+      const userOk=new Set((us||[]).filter(u=>activeRoles.has(u.job_role_id)).map(u=>u.id));
+      teams.forEach(t=>{ if(userOk.has(t.owner_user_id)) set.add(t.id); });
+    }
+  }
+  return set;
+}
+
+async function loadRolesTab(){
+  await loadJobRoles();
+  if(LEAD_MODE){ await loadMyLeadRoles(); return renderRoleTabs(); }
+  if(!teamCategories.length) await loadTeamCats();
+  if(!teamCategories.length){
+    $('rlcattabs').innerHTML='<div style="font-size:13px;color:var(--t3);">사용자 탭에서 소속팀을 먼저 추가해주세요</div>';
+    $('rltabs').innerHTML=''; $('rl-con').classList.add('hidden'); return;
+  }
+  if(!rlCat||!teamCategories.some(c=>c.name===rlCat)) rlCat=teamCategories[0].name;
+  $('rlcattabs').innerHTML=teamCategories.map(c=>`<button class="ttab ${rlCat===c.name?'on':''}" onclick="selRlCat('${jsq(c.name)}')">${c.name}</button>`).join('');
+  renderRoleTabs();
+}
+function selRlCat(c){ rlCat=c; selRoleId=null; loadRolesTab(); }
+
+function renderRoleTabs(){
+  const rs=LEAD_MODE
+    ? jobRoles.filter(r=>(CU.leadRoleIds||[]).includes(r.id))
+    : jobRoles.filter(r=>r.category_name===rlCat);
+  if(!rs.length){
+    $('rltabs').innerHTML=`<div style="font-size:13px;color:var(--t3);">${LEAD_MODE?'책임자로 지정된 직무가 없습니다':'등록된 직무가 없습니다 — 위에서 추가해주세요'}</div>`;
+    $('rl-con').classList.add('hidden'); selRoleId=null; return;
+  }
+  if(!selRoleId||!rs.some(r=>r.id===selRoleId)) selRoleId=rs[0].id;
+  const multiCat=new Set(rs.map(r=>r.category_name)).size>1;
+  $('rltabs').innerHTML=rs.map(r=>`<button class="ttab ${selRoleId===r.id?'on':''}" onclick="selRole('${r.id}')">🧩 ${LEAD_MODE&&multiCat?r.category_name+' · ':''}${r.name}</button>`).join('');
+  $('rl-con').classList.remove('hidden');
+  const r=rs.find(x=>x.id===selRoleId);
+  rlCat=r.category_name;
+  $('rltitle').textContent=`${r.category_name} - ${r.name}`;
+  loadRoleMembers(); loadRoleTpl();
+}
+function selRole(id){ selRoleId=id; editingRtId=null; renderRoleTabs(); }
+
+async function addJobRole(){
+  if(CU.role!=='admin') return toast('관리자만 할 수 있습니다.');
+  const name=$('rli').value.trim(); hmsg('rlerr');
+  if(!name) return msg('rlerr','직무명을 입력해주세요.');
+  const rs=jobRoles.filter(r=>r.category_name===rlCat);
+  const mo=rs.length?Math.max(...rs.map(r=>r.sort_order||0))+1:0;
+  const{data,error}=await sb.from('daily_job_roles').insert({category_name:rlCat,name,sort_order:mo}).select('id').single();
+  if(error){
+    if(error.code==='23505') return msg('rlerr','이미 있는 직무명입니다.');
+    return msg('rlerr','오류: '+error.message);
+  }
+  $('rli').value=''; selRoleId=data.id; toast(`"${name}" 직무 추가 완료`);
+  await loadRolesTab();
+}
+// 직무 순서 변경 (대시보드 표시 순서) — 같은 소속팀 안에서 0..n-1로 재정렬
+async function mvJobRole(dir){
+  if(CU.role!=='admin') return toast('관리자만 할 수 있습니다.');
+  const rs=jobRoles.filter(r=>r.category_name===rlCat);
+  const idx=rs.findIndex(r=>r.id===selRoleId), si=idx+dir;
+  if(idx<0||si<0||si>=rs.length) return;
+  [rs[idx],rs[si]]=[rs[si],rs[idx]];
+  const res=await Promise.all(rs.map((r,i)=>r.sort_order===i?null:sb.from('daily_job_roles').update({sort_order:i}).eq('id',r.id)));
+  const err=res.find(r=>r&&r.error); if(err) return toast('오류: '+err.error.message);
+  await loadRolesTab();
+}
+async function renameJobRole(){
+  if(CU.role!=='admin') return toast('관리자만 할 수 있습니다.');
+  const r=jobRoles.find(x=>x.id===selRoleId); if(!r) return;
+  const name=(prompt('새 직무명',r.name)||'').trim();
+  if(!name||name===r.name) return;
+  const{error}=await sb.from('daily_job_roles').update({name}).eq('id',r.id);
+  if(error) return toast(error.code==='23505'?'이미 있는 직무명입니다.':'오류: '+error.message);
+  toast('✓ 직무명 변경 완료'); await loadRolesTab();
+}
+async function delJobRole(){
+  if(CU.role!=='admin') return toast('관리자만 할 수 있습니다.');
+  const r=jobRoles.find(x=>x.id===selRoleId); if(!r) return;
+  if(!await askDel(`"${r.name}" 직무를 삭제할까요?\n⚠ 공통업무 항목도 함께 삭제되고, 배정된 인원은 직무 없음이 됩니다.\n(이미 체크한 과거 기록은 그대로 남아요)`)) return;
+  const{data:rts}=await sb.from('daily_role_templates').select('item_name').eq('role_id',r.id);
+  const{error}=await sb.from('daily_job_roles').delete().eq('id',r.id);
+  if(error) return toast('오류: '+error.message);
+  await delLog('직무',`${r.category_name} - ${r.name}`,rts&&rts.length?`공통업무 함께 삭제: ${rts.map(t=>t.item_name).join(', ')}`:'');
+  selRoleId=null; toast(`"${r.name}" 삭제 완료`); await loadRolesTab();
+}
+
+async function loadRoleMembers(){
+  const el=$('rlmembers');
+  const[{data:us},{data:lds}]=await Promise.all([
+    sb.from('daily_users').select('id,name,job_role_id').eq('team_category',rlCat).order('created_at'),
+    sb.from('daily_role_leaders').select('user_id').eq('role_id',selRoleId)
+  ]);
+  const leaders=new Set((lds||[]).map(l=>l.user_id));
+  // 다른 소속팀 사람이 책임자로 지정된 경우도 표시
+  const extraIds=[...leaders].filter(id=>!(us||[]).some(u=>u.id===id));
+  let extra=[];
+  if(extraIds.length){ const{data:ex}=await sb.from('daily_users').select('id,name,job_role_id').in('id',extraIds); extra=ex||[]; }
+  const all=[...(us||[]),...extra];
+  if(!all.length){ el.innerHTML='<div style="font-size:13px;color:var(--t3);">이 소속팀에 등록된 사용자가 없습니다</div>'; return; }
+  const rn={}; jobRoles.forEach(r=>rn[r.id]=r.name);
+  if(LEAD_MODE){
+    const mem=all.filter(u=>u.job_role_id===selRoleId||leaders.has(u.id));
+    el.innerHTML=mem.length?mem.map(u=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;border:1px solid var(--acb);background:var(--acl);border-radius:6px;padding:4px 8px;">${leaders.has(u.id)?'⭐ ':''}${u.name}</span>`).join(''):'<div style="font-size:13px;color:var(--t3);">배정된 인원이 없습니다 (관리자에게 배정 요청)</div>';
+    return;
+  }
+  el.innerHTML=all.map(u=>{
+    const mine=u.job_role_id===selRoleId;
+    const other=u.job_role_id&&!mine?rn[u.job_role_id]:'';
+    const ld=leaders.has(u.id);
+    return `<span style="display:inline-flex;align-items:center;border:1px solid ${mine||ld?'var(--acb)':'var(--bdr)'};background:${mine?'var(--acl)':'transparent'};border-radius:6px;overflow:hidden;">
+      <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:4px 6px 4px 8px;cursor:pointer;">
+        <input type="checkbox" ${mine?'checked':''} onchange="toggleRoleMember('${u.id}',this.checked,'${jsq(other)}')" style="cursor:pointer;">${u.name}${other?`<span style="color:var(--t3);">(${other})</span>`:''}
+      </label>
+      <button onclick="toggleRoleLeader('${u.id}',${!ld},'${jsq(u.name)}')" title="${ld?'책임자 해제':'책임자 지정'}" style="border:none;border-left:1px solid var(--bdr);background:${ld?'#fef3c7':'transparent'};padding:4px 7px;cursor:pointer;font-size:13px;line-height:1;">${ld?'⭐':'☆'}</button>
+    </span>`;
+  }).join('');
+}
+async function toggleRoleLeader(userId,on,name){
+  if(CU.role!=='admin') return toast('관리자만 지정할 수 있습니다.');
+  const{error}=on
+    ? await sb.from('daily_role_leaders').insert({role_id:selRoleId,user_id:userId})
+    : await sb.from('daily_role_leaders').delete().eq('role_id',selRoleId).eq('user_id',userId);
+  if(error && error.code!=='23505') return toast('오류: '+error.message);
+  toast(on?`⭐ ${name} 책임자 지정 (다음 홈 화면부터 메뉴 표시)`:`${name} 책임자 해제`);
+  loadRoleMembers();
+}
+async function toggleRoleMember(userId,checked,otherRole){
+  if(CU.role!=='admin'){ toast('관리자만 배정할 수 있습니다.'); return loadRoleMembers(); }
+  if(checked&&otherRole&&!confirm(`현재 "${otherRole}" 직무에 배정되어 있어요.\n이 직무로 옮길까요?`)) return loadRoleMembers();
+  const{error}=await sb.from('daily_users').update({job_role_id:checked?selRoleId:null}).eq('id',userId);
+  if(error){ toast('오류: '+error.message); return loadRoleMembers(); }
+  toast(checked?'✓ 직무 배정 완료':'직무 해제 완료'); loadRoleMembers();
+}
+
+async function loadRoleTpl(){
+  const el=$('rtlist');
+  const{data:items}=await sb.from('daily_role_templates').select('*').eq('role_id',selRoleId).order('sort_order');
+  if(!items||!items.length){el.innerHTML='<div class="empty"><div class="ei">📌</div>등록된 공통업무가 없습니다</div>';return;}
+  el.innerHTML=`<table class="dt"><thead><tr><th style="width:32px;">#</th><th>항목명</th><th style="width:50px;text-align:center;">활성</th><th style="width:90px;text-align:center;">순서</th><th style="width:110px;text-align:right;">관리</th></tr></thead><tbody>
+  ${items.map((it,i)=>{
+    if(editingRtId===it.id){
+      return `<tr><td style="color:var(--t3);">${i+1}</td>
+      <td><input class="fi" type="text" id="ert-${it.id}" value="${it.item_name.replace(/"/g,'&quot;')}" style="padding:6px 8px;font-size:13px;"></td>
+      <td style="text-align:center;color:var(--t3);">-</td><td style="text-align:center;color:var(--t3);">-</td>
+      <td style="text-align:right;white-space:nowrap;"><button class="bg" onclick="saveEditRt('${it.id}')">저장</button> <button class="bg" onclick="editingRtId=null;loadRoleTpl()">취소</button></td></tr>`;
+    }
+    return `<tr style="${!it.is_active?'opacity:.5':''}">
+    <td style="color:var(--t3);">${i+1}</td><td>${it.item_name}</td>
+    <td style="text-align:center;"><input type="checkbox" ${it.is_active?'checked':''} onchange="togRt('${it.id}',this.checked)" style="width:16px;height:16px;cursor:pointer;"></td>
+    <td style="text-align:center;">
+      <button class="bg" onclick="mvRt('${it.id}',-1)" ${i===0?'disabled':''}>↑</button>
+      <button class="bg" onclick="mvRt('${it.id}',1)" ${i===items.length-1?'disabled':''}>↓</button>
+    </td>
+    <td style="text-align:right;white-space:nowrap;"><button class="bg" onclick="editingRtId='${it.id}';loadRoleTpl()">수정</button> <button class="bd" onclick="delRt('${it.id}','${jsq(it.item_name)}')">삭제</button></td>
+    </tr>`;
+  }).join('')}</tbody></table>`;
+}
+async function addRoleTpl(){
+  if(!canEditRole(selRoleId)) return toast('이 직무의 공통업무 편집 권한이 없습니다.');
+  const name=$('rti').value.trim(); hmsg('rterr');
+  if(!name) return msg('rterr','항목명을 입력해주세요.');
+  if(!selRoleId) return msg('rterr','직무를 선택해주세요.');
+  const{data:ex}=await sb.from('daily_role_templates').select('sort_order').eq('role_id',selRoleId).order('sort_order',{ascending:false}).limit(1);
+  const mo=(ex?.[0]?.sort_order??-1)+1;
+  const{error}=await sb.from('daily_role_templates').insert({role_id:selRoleId,item_name:name,sort_order:mo});
+  if(error) return msg('rterr','오류: '+error.message);
+  $('rti').value=''; toast(`"${name}" 공통업무 추가 완료`); loadRoleTpl();
+}
+async function saveEditRt(id){
+  if(!canEditRole(selRoleId)) return toast('이 직무의 공통업무 편집 권한이 없습니다.');
+  const name=$('ert-'+id).value.trim();
+  if(!name) return toast('항목명을 입력해주세요.');
+  const{error}=await sb.from('daily_role_templates').update({item_name:name}).eq('id',id);
+  if(error) return toast('오류: '+error.message);
+  editingRtId=null; toast('✓ 수정 완료'); loadRoleTpl();
+}
+async function togRt(id,active){
+  if(!canEditRole(selRoleId)) return toast('이 직무의 공통업무 편집 권한이 없습니다.');
+  await sb.from('daily_role_templates').update({is_active:active}).eq('id',id);
+  toast(active?'항목 활성화':'항목 비활성화'); loadRoleTpl();
+}
+async function delRt(id,name){
+  if(!canEditRole(selRoleId)) return toast('이 직무의 공통업무 편집 권한이 없습니다.');
+  if(!await askDel(`"${name}" 공통업무를 삭제할까요?\n(이미 체크한 과거 기록은 남아요)`)) return;
+  const{error}=await sb.from('daily_role_templates').delete().eq('id',id);
+  if(error) return toast('오류: '+error.message);
+  await delLog('공통업무',name,$('rltitle').textContent);
+  toast(`"${name}" 삭제 완료`); loadRoleTpl();
+}
+async function mvRt(id,dir){
+  if(!canEditRole(selRoleId)) return toast('이 직무의 공통업무 편집 권한이 없습니다.');
+  const{data:items}=await sb.from('daily_role_templates').select('*').eq('role_id',selRoleId).order('sort_order');
+  const idx=items.findIndex(i=>i.id===id), si=idx+dir;
+  if(si<0||si>=items.length) return;
+  // 순서를 0..n-1로 다시 매겨서 저장 (중간 삭제로 생긴 빈 번호·중복 번호까지 정리)
+  [items[idx],items[si]]=[items[si],items[idx]];
+  await Promise.all(items.map((it,i)=>it.sort_order===i?null:sb.from('daily_role_templates').update({sort_order:i}).eq('id',it.id)));
+  loadRoleTpl();
+}
+
+// ── 삭제 로그 (관리자) ──────────────────
+let delLogs=[];
+async function loadLogs(){
+  const el=$('lglist');
+  el.innerHTML='<div class="empty"><div class="ei">🗑</div>불러오는 중...</div>';
+  const{data,error}=await sb.from('daily_delete_logs').select('*').order('created_at',{ascending:false}).limit(500);
+  if(error){ el.innerHTML='<div class="empty"><div class="ei">⚠️</div>불러오기 실패<br><small>'+error.message+'</small></div>'; return; }
+  delLogs=data||[];
+  const sel=$('lg-type'), cur=sel.value;
+  sel.innerHTML='<option value="">전체 구분</option>'+[...new Set(delLogs.map(l=>l.target_type))].map(t=>`<option value="${t}">${t}</option>`).join('');
+  if([...sel.options].some(o=>o.value===cur)) sel.value=cur;
+  renderLogs();
+}
+function renderLogs(){
+  const el=$('lglist'); const type=$('lg-type').value, q=$('lg-q').value.trim().toLowerCase();
+  const list=delLogs.filter(l=>(!type||l.target_type===type)&&(!q||[l.actor_name,l.target_name,l.detail].join(' ').toLowerCase().includes(q)));
+  if(!list.length){ el.innerHTML='<div class="empty"><div class="ei">📭</div>삭제 기록이 없습니다</div>'; return; }
+  const fmt=d=>{const t=new Date(d);return `${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;};
+  el.innerHTML=`<div style="font-size:12px;color:var(--t3);margin-bottom:8px;">최근 ${list.length}건</div>
+  <table class="dt" style="font-size:13px;"><thead><tr><th style="width:80px;">일시</th><th style="width:80px;">삭제자</th><th>대상</th></tr></thead><tbody>
+  ${list.map(l=>`<tr>
+    <td style="font-size:12px;color:var(--t2);white-space:nowrap;">${fmt(l.created_at)}<div style="font-size:11px;color:var(--t3);">${new Date(l.created_at).getFullYear()}</div></td>
+    <td style="font-weight:600;white-space:nowrap;">${l.actor_name||'-'}</td>
+    <td><span class="tbadge bi" style="margin:0 6px 0 0;">${l.target_type}</span><strong>${l.target_name||'-'}</strong>${l.detail?`<div style="font-size:12px;color:var(--t3);margin-top:3px;">${l.detail}</div>`:''}</td>
+  </tr>`).join('')}</tbody></table>`;
+}
+
 // ── 누락 현황 (전체, 관리자용) ─────────────
-let admCat='전체', admTeams=[];
+let admCat='전체', admTeams=[], admSub='miss';
 
 async function loadAdMissing(){
   const{data:teams}=await sb.from('daily_teams').select('id,name,owner_user_id').order('sort_order');
   admTeams=teams||[];
   const cats=['전체',...new Set(admTeams.map(t=>moExtractCat(t.name)))];
-  $('admcattabs').innerHTML=cats.map(c=>`<button class="ttab ${admCat===c?'on':''}" onclick="selAdCat('${c.replace(/'/g,"\\'")}')">${c}</button>`).join('');
+  if(!cats.includes(admCat)) admCat='전체';
+  $('admcattabs').innerHTML=cats.map(c=>`<button class="ttab ${admCat===c?'on':''}" onclick="selAdCat('${jsq(c)}')">${c}</button>`).join('');
   await renderAdMissList();
 }
 
-function selAdCat(c){ admCat=c; document.querySelectorAll('#admcattabs .ttab').forEach(b=>b.classList.toggle('on',b.textContent===c)); renderAdMissList(); }
+function selAdCat(c){ admCat=c; admYDetail=null; document.querySelectorAll('#admcattabs .ttab').forEach(b=>b.classList.toggle('on',b.textContent===c)); renderAdMissList(); }
+function selAdSub(k){ admSub=k; document.querySelectorAll('#admsubtabs .ttab').forEach(b=>b.classList.toggle('on',b.dataset.k===k)); renderAdMissList(); }
 
 async function renderAdMissList(){
   const el=$('admisslist');
+  $('admlisttitle').innerHTML=admSub==='done'
+    ? '사유 처리 목록 <span style="font-size:12px;color:var(--t3);font-weight:400;">— 최근 처리 순, 취소하면 다시 누락으로 표시</span>'
+    : admSub==='year'
+    ? '월별 누락 현황 <span style="font-size:12px;color:var(--t3);font-weight:400;">— 숫자(또는 월)를 클릭하면 세부 날짜 확인</span>'
+    : '담당자별 누락 목록 <span style="font-size:12px;color:var(--t3);font-weight:400;">— 날짜를 클릭해 사유 처리 또는 체크리스트 확인</span>';
   let filtered=admCat==='전체'?admTeams:admTeams.filter(t=>moExtractCat(t.name)===admCat);
   if(!filtered.length){el.innerHTML='<div class="empty"><div class="ei">📋</div>해당 팀에 체크리스트가 없습니다</div>';return;}
-
-  const{data:tpls0}=await sb.from('daily_templates').select('team_id').in('team_id',filtered.map(t=>t.id)).eq('is_active',true);
-  const tplTeamIds0=new Set((tpls0||[]).map(t=>t.team_id));
-  filtered=filtered.filter(t=>tplTeamIds0.has(t.id));
-  if(!filtered.length){el.innerHTML='<div class="empty"><div class="ei">✅</div>최근 7일 누락된 체크리스트가 없습니다</div>';return;}
-
-  const days=[]; const base=new Date(workDate()+'T12:00:00');
-  for(let i=1;i<=7;i++){ const d=new Date(base); d.setDate(d.getDate()-i); const ds=d.toISOString().split('T')[0]; if(ds>=SERVICE_START_DATE) days.push(ds); }
-  if(!days.length){ el.innerHTML='<div class="empty"><div class="ei">✅</div>최근 7일 누락된 체크리스트가 없습니다</div>'; return; }
-
-  const{data:cls}=await sb.from('daily_checklists').select('team_id,work_date,daily_checklist_items(status)').in('team_id',filtered.map(t=>t.id)).in('work_date',days);
-  const has={};
-  (cls||[]).forEach(cl=>{
-    has[cl.team_id]=has[cl.team_id]||{};
-    const items=cl.daily_checklist_items||[];
-    has[cl.team_id][cl.work_date]={total:items.length,done:items.filter(i=>i.status!=='pending').length};
-  });
+  el.innerHTML='<div class="empty"><div class="ei">📋</div>불러오는 중...</div>';
 
   const ownerIds=[...new Set(filtered.map(t=>t.owner_user_id).filter(Boolean))];
   let om={};
   if(ownerIds.length){const{data:us}=await sb.from('daily_users').select('id,name').in('id',ownerIds);(us||[]).forEach(u=>om[u.id]=u.name);}
 
-  const missingByTeam=filtered.map(t=>{
-    const miss=days.filter(d=>{
-      const rec=has[t.id]?.[d];
-      return !rec || (rec.total>0 && rec.done<rec.total);
-    }).sort();
-    return{id:t.id,name:t.name,owner_user_id:t.owner_user_id,miss};
-  }).filter(x=>x.miss.length);
+  if(admSub==='done') return renderAdExcuseList(filtered,om);
 
+  const tplTeamIds0=await teamsWithItems(filtered);
+  filtered=filtered.filter(t=>tplTeamIds0.has(t.id));
+
+  if(admSub==='year') return renderAdYear(filtered,om);
+
+  const missingByTeam=await calcMissing(filtered);
   if(!missingByTeam.length){
-    el.innerHTML='<div class="empty"><div class="ei">✅</div>최근 7일 누락된 체크리스트가 없습니다</div>';
+    el.innerHTML='<div class="empty"><div class="ei">✅</div>최근 7일 누락된 체크리스트가 없습니다 (출근일 기준)</div>';
     return;
   }
   const groups=[]; const gi={};
@@ -1503,9 +2189,131 @@ async function renderAdMissList(){
     ${g.items.map(x=>`
     <div style="padding:10px 0;border-bottom:1px solid var(--bdr);">
       <div style="font-size:13px;"><strong>${x.name}</strong> <span style="color:var(--t3);font-size:12px;">${om[x.owner_user_id]?'('+om[x.owner_user_id]+')':''}</span></div>
-      <div style="margin-top:6px;">${x.miss.map(d=>{const[,m,dd]=d.split('-');return `<span class="tbadge bi" style="margin-right:4px;margin-top:4px;display:inline-block;cursor:pointer;" onclick="openCL('${x.id}','${x.name}','${d}','${x.owner_user_id||''}')">${m}/${dd} 누락</span>`;}).join('')}</div>
+      <div style="margin-top:6px;">${x.miss.map(d=>missBadge(x,d)).join('')}</div>
     </div>`).join('')}
   `).join('');
+}
+
+// ── 월별 누락 현황 ──────────────────────
+let admYear=+workDate().slice(0,4), admYData=null, admYDetail=null;
+function chAdYear(dy){ admYear+=dy; admYDetail=null; renderAdMissList(); }
+
+async function renderAdYear(teams,om){
+  const el=$('admisslist');
+  const from=`${admYear}-01-01`, yEnd=`${admYear}-12-31`, yd=yesterday();
+  const to=yEnd<yd?yEnd:yd;
+  const curY=+workDate().slice(0,4);
+  const nav=`<div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:14px;">
+    <button class="bsm" onclick="chAdYear(-1)" ${admYear<=+SERVICE_START_DATE.slice(0,4)?'disabled':''}>◀</button>
+    <div style="font-size:17px;font-weight:700;">${admYear}년</div>
+    <button class="bsm" onclick="chAdYear(1)" ${admYear>=curY?'disabled':''}>▶</button>
+  </div>`;
+  el.innerHTML=nav+'<div class="empty"><div class="ei">📅</div>1년치 계산 중...</div>';
+
+  const res=await calcMissingRange(teams,from,to);
+  if(admSub!=='year') return; // 계산 중 다른 탭으로 이동한 경우
+  // 사람(체크리스트) × 월 집계
+  const byTeam={}; res.forEach(x=>byTeam[x.id]=x);
+  const effFrom=from<SERVICE_START_DATE?SERVICE_START_DATE:from;
+  const lastM=to>=effFrom?+to.slice(5,7):0;                                 // 계산된 마지막 월 (이후 월은 빈칸)
+  const startM=+effFrom.slice(0,4)===admYear?+effFrom.slice(5,7):13;       // 서비스 시작 전 월은 빈칸
+  const rows=teams.map(t=>{
+    const miss=byTeam[t.id]?.miss||[];
+    const cnt=Array(13).fill(0);
+    miss.forEach(d=>cnt[+d.slice(5,7)]++);
+    return{t,miss,cnt,total:miss.length};
+  });
+  const monthTotal=Array(13).fill(0); rows.forEach(r=>{for(let m=1;m<=12;m++) monthTotal[m]+=r.cnt[m];});
+  const grand=rows.reduce((a,r)=>a+r.total,0);
+  admYData={rows,om,teams,startM,lastM,monthTotal,grand,nav};
+  drawAdYear();
+}
+
+// 계산된 데이터로 표만 다시 그림 (월/숫자 클릭 시 재계산 없이 빠르게)
+function drawAdYear(){
+  const el=$('admisslist'); if(!el||!admYData) return;
+  const{rows,om,startM,lastM,monthTotal,grand,nav}=admYData;
+
+  const cell=(r,m)=>{
+    if(m<startM||m>lastM) return `<td style="color:var(--bdr);">·</td>`;
+    const c=r.cnt[m];
+    if(!c) return `<td style="color:var(--t3);">-</td>`;
+    const on=admYDetail&&admYDetail.m===m&&admYDetail.teamId===r.t.id;
+    return `<td><span class="ynum" onclick="showYDetail(${m},'${r.t.id}')" style="background:${on?'var(--ng)':'var(--ngl)'};color:${on?'#fff':'var(--ng)'};">${c}</span></td>`;
+  };
+  const sorted=[...rows].sort((a,b)=>b.total-a.total||0);
+  el.innerHTML=nav+`
+    <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:120px;background:var(--ngl);border:1px solid #fca5a5;border-radius:8px;padding:10px 12px;"><div style="font-size:11px;color:var(--ng);font-weight:600;">${admYear}년 총 누락</div><div style="font-size:20px;font-weight:800;color:var(--ng);">${grand}건</div></div>
+      <div style="flex:1;min-width:120px;background:var(--bg);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;"><div style="font-size:11px;color:var(--t2);font-weight:600;">누락 발생 인원</div><div style="font-size:20px;font-weight:800;">${rows.filter(r=>r.total).length}<span style="font-size:13px;color:var(--t3);font-weight:600;"> / ${rows.length}명</span></div></div>
+    </div>
+    <div class="ywrap">
+    <table class="ydt">
+      <thead><tr><th class="yname">이름</th>
+        ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>`<th>${m<startM||m>lastM?`<span style="color:var(--bdr);">${m}월</span>`:`<span onclick="showYDetail(${m},null)" style="cursor:pointer;color:${admYDetail&&admYDetail.m===m&&!admYDetail.teamId?'var(--ng)':'var(--ac)'};text-decoration:underline;">${m}월</span>`}</th>`).join('')}
+        <th class="ysum" style="font-weight:600;">합계</th></tr></thead>
+      <tbody>
+      ${sorted.map(r=>`<tr>
+        <td class="yname" title="${r.t.name}">${om[r.t.owner_user_id]||r.t.name.replace(/^\[.*?\]\s*/,'')}</td>
+        ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>cell(r,m)).join('')}
+        <td class="ysum" style="color:${r.total?'var(--ng)':'var(--ok)'};">${r.total||0}</td>
+      </tr>`).join('')}
+      <tr class="ytot"><td class="yname" style="background:var(--bg);">월 합계</td>
+        ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>`<td style="${monthTotal[m]?'color:var(--ng);':'color:var(--t3);'}">${m<startM||m>lastM?'':monthTotal[m]||'-'}</td>`).join('')}
+        <td class="ysum" style="background:var(--bg);color:var(--ng);">${grand}</td></tr>
+      </tbody>
+    </table></div>
+    <div id="admydetail" style="margin-top:16px;"></div>`;
+  renderYDetail();
+}
+
+function showYDetail(m,teamId){
+  admYDetail=(admYDetail&&admYDetail.m===m&&admYDetail.teamId===teamId)?null:{m,teamId};
+  drawAdYear();
+  const d=$('admydetail'); if(admYDetail&&d) d.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function renderYDetail(){
+  const el=$('admydetail'); if(!el) return;
+  if(!admYDetail||!admYData){ el.innerHTML='<div style="font-size:12px;color:var(--t3);text-align:center;">월 또는 숫자를 클릭하면 세부 누락 날짜가 여기에 표시돼요</div>'; return; }
+  const{m,teamId}=admYDetail, {rows,om}=admYData;
+  const list=rows.filter(r=>(!teamId||r.t.id===teamId)&&r.cnt[m]).map(r=>({...r,days:r.miss.filter(d=>+d.slice(5,7)===m)}));
+  const who=teamId?(om[list[0]?.t.owner_user_id]||list[0]?.t.name||''):'전체';
+  el.innerHTML=`<div style="border:1.5px solid #fca5a5;border-radius:10px;padding:14px;background:#fffafa;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div style="font-size:14px;font-weight:700;color:var(--ng);">📌 ${admYear}년 ${m}월 누락 — ${who}</div>
+      <button class="bg" onclick="admYDetail=null;drawAdYear();">닫기</button>
+    </div>
+    <div style="font-size:12px;color:var(--t3);margin-bottom:6px;">날짜를 클릭하면 사유 처리 또는 체크리스트 확인</div>
+    ${!list.length?'<div style="font-size:13px;color:var(--t3);">누락 없음</div>':list.map(r=>`
+      <div style="padding:8px 0;border-top:1px solid var(--bdr);">
+        <div style="font-size:13px;"><strong>${r.t.name}</strong> <span style="color:var(--t3);font-size:12px;">${om[r.t.owner_user_id]?'('+om[r.t.owner_user_id]+')':''} · ${r.days.length}건</span></div>
+        <div style="margin-top:4px;">${r.days.map(d=>missBadge(r.t,d).replace('누락</span>',`(${DOW_LABEL[dowOf(d)]}) 누락</span>`)).join('')}</div>
+      </div>`).join('')}
+  </div>`;
+}
+
+async function renderAdExcuseList(teams,om){
+  const el=$('admisslist');
+  const tm={}; teams.forEach(t=>tm[t.id]=t);
+  const{data:exs,error}=await sb.from('daily_missing_excuses').select('*').in('team_id',teams.map(t=>t.id)).order('work_date',{ascending:false}).order('created_at',{ascending:false}).limit(200);
+  if(error){ el.innerHTML='<div class="empty"><div class="ei">⚠️</div>불러오기 실패<br><small>'+error.message+'</small></div>'; return; }
+  if(!exs||!exs.length){ el.innerHTML='<div class="empty"><div class="ei">📭</div>사유 처리된 내역이 없습니다</div>'; return; }
+  const cbIds=[...new Set(exs.map(e=>e.created_by).filter(Boolean))];
+  let cm={};
+  if(cbIds.length){const{data:us}=await sb.from('daily_users').select('id,name').in('id',cbIds);(us||[]).forEach(u=>cm[u.id]=u.name);}
+  el.innerHTML=`<table class="dt"><thead><tr><th>날짜</th><th>체크리스트</th><th>사유</th><th>처리</th><th style="text-align:right;"></th></tr></thead><tbody>
+  ${exs.map(e=>{
+    const t=tm[e.team_id]||{name:'-'};
+    const[,m,dd]=e.work_date.split('-');
+    const at=e.created_at?new Date(e.created_at):null;
+    return `<tr>
+      <td style="white-space:nowrap;font-weight:600;">${m}/${dd}</td>
+      <td><div style="font-size:13px;font-weight:600;">${t.name}</div><div style="font-size:11px;color:var(--t3);">${om[t.owner_user_id]||''}</div></td>
+      <td><span class="tbadge bc">${e.reason_type}</span>${e.memo?`<div style="font-size:12px;color:var(--t2);margin-top:3px;">${e.memo}</div>`:''}</td>
+      <td style="font-size:11px;color:var(--t3);white-space:nowrap;">${cm[e.created_by]||'-'}${at?'<br>'+(at.getMonth()+1)+'/'+at.getDate():''}</td>
+      <td style="text-align:right;"><button class="bd" onclick="delMx('${e.id}')">취소</button></td>
+    </tr>`;
+  }).join('')}</tbody></table>`;
 }
 
 // ── 기록 조회 ────────────────────────────
@@ -1533,7 +2341,7 @@ async function loadHist(){
   wrap.innerHTML='<div class="empty"><div class="ei">📋</div>불러오는 중...</div>';
 
   const{data:raw}=await sb.from('daily_checklists')
-    .select('id,work_date,daily_teams(name,owner_user_id),daily_checklist_items(id,status,item_name,memo,sort_order)')
+    .select('id,work_date,daily_teams(name,owner_user_id),daily_checklist_items(id,status,item_name,memo,sort_order,role_template_id)')
     .eq('work_date',selDate).order('work_date',{ascending:false});
 
   let cls=raw||[];
@@ -1596,7 +2404,7 @@ async function loadHist(){
                 <tbody>
                   ${items.map(it=>`
                     <tr style="border-bottom:1px solid var(--bdr);${it.status==='N'?'background:#fff8f8;':''}">
-                      <td style="padding:7px 6px;${it.status==='N'?'color:var(--ng);font-weight:600;':''}">${it.item_name}</td>
+                      <td style="padding:7px 6px;${it.status==='N'?'color:var(--ng);font-weight:600;':''}">${it.role_template_id?COMMON_BADGE:''}${it.item_name}</td>
                       <td style="text-align:center;padding:7px 6px;">${stIcon[it.status]||'-'}</td>
                       <td style="padding:7px 6px;color:var(--t3);font-size:12px;">${it.memo||''}</td>
                     </tr>
@@ -1637,7 +2445,21 @@ async function loadHist(){
 
 // 엔터키
 document.addEventListener('keydown',e=>{
+  if($('dl-modal').classList.contains('on')){
+    if(e.key==='Escape') return dlClose(false);
+    if(e.key==='Enter'){ e.preventDefault(); return dlConfirm(); }
+    return;
+  }
+  if(e.key==='Escape'){
+    if($('pv-modal').classList.contains('on')) return closePv();
+    if($('mx-modal').classList.contains('on')) return closeMx();
+    return;
+  }
   if(e.key!=='Enter') return;
+  // 사유 처리 창: 상세 내용 입력 후 Enter로 바로 등록
+  if($('mx-modal').classList.contains('on')){ if(e.target&&e.target.id==='mx-memo') saveMx(); return; }
+  // 로그인 화면이 아닐 때는 로그인/재설정/사용자추가 Enter 처리 안 함 (로그인 후 Enter 누르면 로그인이 다시 실행되던 문제)
+  if($('sc-auth').style.display==='none') return;
   if(!$('p-login').classList.contains('hidden')) doLogin();
   else if(!$('p-reset').classList.contains('hidden')) doReset();
   else if($('au-ms')&&!$('au-ms').classList.contains('hidden')) verifyM();
